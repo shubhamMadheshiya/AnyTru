@@ -1,4 +1,4 @@
-# RESTful API Node Express Mongoose Example
+# AnyTru
 
 The project builds RESTful APIs of AnyTru using Node.js, Express and Mongoose, ...
 
