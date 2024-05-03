@@ -4,6 +4,8 @@ const cors = require('cors')
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./utils/swagger-output.json');
 const config = require('./config/config');
 const connectDB = require('./config/db');
 const corsOptions = require('./config/corsOptions');
@@ -32,6 +34,8 @@ app.use('/', express.static(path.join(__dirname, '/public')));
 
 // routes
 app.use('/', require('./routes/root'));
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 mongoose.connection.once('open', () => {
 	console.log('Connected to MongoDB');
