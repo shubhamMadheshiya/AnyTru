@@ -1,14 +1,14 @@
 require('dotenv').config();
-const express = require('express')
-const cors = require('cors')
+const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./utils/swagger-output.json');
-const config = require('./config/config');
-const connectDB = require('./config/db');
-const corsOptions = require('./config/corsOptions');
+const swaggerDocument = require('./src/utils/swagger-output.json');
+const config = require('./src/config/config');
+const connectDB = require('./src/config/db');
+const corsOptions = require('./src/config/corsOptions');
 
 const app = express();
 
@@ -23,7 +23,7 @@ app.use(cors(corsOptions));
 // built-in middleware to handle urlencoded form data
 app.use(express.urlencoded({ extended: false }));
 
-// built-in middleware for json 
+// built-in middleware for json
 app.use(express.json());
 
 //middleware for cookies
@@ -33,7 +33,7 @@ app.use(cookieParser());
 app.use('/', express.static(path.join(__dirname, '/public')));
 
 // routes
-app.use('/', require('./routes/root'));
+app.use('/', require('./src/routes/root'));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
