@@ -1,15 +1,15 @@
 const swaggerAutogen = require('swagger-autogen')();
-const config = require('./config/config')
+const config = require('./src/config/config');
 
 const doc = {
-  info: {
-    title: 'My API',
-    description: 'Description'
-  },
-  host: `localhost:${config.port}`
+	info: {
+		title: 'My API',
+		description: 'Description'
+	},
+	host: `localhost:${config.port}`
 };
 
-const outputFile = './utils/swagger-output.json';
+const outputFile = './src/utils/swagger-output.json';
 const routes = ['./server.js'];
 
 /* NOTE: If you are using the express Router, you must pass in the 'routes' only the 
