@@ -8,7 +8,7 @@ Clone the repo:
 
 ```bash
 git clone https://github.com/shubhamMadheshiya/AnyTru.git
-cd api
+# cd api
 ```
 
 Install the dependencies:
