@@ -1,9 +1,12 @@
 require('dotenv').config();
 const express = require('express')
-const config = require('./config/config')
-const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const cors = require('cors')
 const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
+const config = require('./config/config');
+const connectDB = require('./config/db');
+const corsOptions = require('./config/corsOptions');
+
 const app = express();
 
 const PORT = config.port || 6000;
@@ -11,6 +14,8 @@ const PORT = config.port || 6000;
 // Connect to MongoDB
 connectDB();
 
+// Cross Origin Resource Sharing
+app.use(cors(corsOptions));
 
 // built-in middleware to handle urlencoded form data
 app.use(express.urlencoded({ extended: false }));
