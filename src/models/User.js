@@ -1,32 +1,57 @@
 const mongoose = require('mongoose');
-
-
+const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
 
 const userSchema = new mongoose.Schema({
-	name: {
-		firstName: {
-			type: String,
-			required: true
-		},
-		lastName: {
-			type: String
-		}
+	phoneNumber: {
+		type: String
 	},
-
+	firstName: {
+		type: String
+	},
 	email: {
 		type: String,
-		required: true,
+		required: () => {
+			return this.provider !== 'email' ? false : true;
+		},
 		unique: true
 	},
 	userId: {
 		type: String,
-		required: true,
+		// required: true,
 		unique: true
+	},
+	phoneNumber: {
+		type: String
 	},
 	bio: {
 		type: String
 	},
-	contactNumber: Number,
+	provider: {
+		type: String,
+		required: true,
+		default: EMAIL_PROVIDER.Email
+	},
+	googleId: {
+		type: String
+	},
+	facebookId: {
+		type: String
+	},
+	avatar: {
+		type: String
+	},
+	role: {
+		type: String,
+		default: ROLES.Member,
+		enum: [ROLES.Admin, ROLES.Member, ROLES.Merchant]
+	},
+	resetPasswordToken: { type: String },
+	resetPasswordExpires: { type: Date },
+	updated: Date,
+	created: {
+		type: Date,
+		default: Date.now
+	},
 	address: [
 		{
 			type: mongoose.Schema.Types.ObjectId,
