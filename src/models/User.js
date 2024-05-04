@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
 	phoneNumber: {
 		type: String
 	},
+	password:{
+		type:String,
+		required:true,
+	},
 	bio: {
 		type: String
 	},
