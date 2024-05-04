@@ -50,7 +50,8 @@ router.post('/login', async (req, res) => {
 		}
 
 		const payload = {
-			id: user.id
+			id: user.id,
+			role:user.role,
 		};
 
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
@@ -190,6 +191,7 @@ router.get(
 		// TODO find another way to send the token to frontend
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 		const jwtToken = `Bearer ${token}`;
+		// res.redirect(`${keys.app.clientURL}/dashboard`)
 		res.redirect(`${keys.app.clientURL}/auth/success?token=${jwtToken}`);
 	}
 );
