@@ -1,4 +1,4 @@
-const User = require('../models/user.model');
+const User = require('../models/User');
 
 // Controller function to create a new user
 exports.createUser = async (req, res) => {
@@ -13,7 +13,8 @@ exports.createUser = async (req, res) => {
 // Controller function to get user by userId
 exports.getUserById = async (req, res) => {
 	try {
-		const user = await User.findOne({ userId: req.params.userId });
+        // console.log('console file is ',req.user)
+		const user = await User.findOne({ _id: req.params.userId });
 		if (!user) {
 			return res.status(404).json({ message: 'User not found' });
 		}
