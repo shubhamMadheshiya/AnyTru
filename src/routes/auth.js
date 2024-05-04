@@ -19,19 +19,19 @@ const { secret, tokenLife } = keys.jwt;
 
 router.post('/login', async (req, res) => {
 	try {
-		const { email, password } = req.body;
+	const { identifier, password } = req.body;
 
-		if (!email) {
-			return res.status(400).json({ error: 'You must enter an email address.' });
-		}
+    // Check if identifier and password are provided
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Both identifier and password are required.' });
+    }
 
-		if (!password) {
-			return res.status(400).json({ error: 'You must enter a password.' });
-		}
+    // Find user by email or userId
+    const user = await User.findOne({ $or: [{ email: identifier }, { userId: identifier }] });
+	console.log(user)
 
-		const user = await User.findOne({ email });
 		if (!user) {
-			return res.status(400).send({ error: 'No user found for this email address.' });
+			return res.status(400).send({ error: 'No user found for this address.' });
 		}
 
 		if (user && user.provider !== EMAIL_PROVIDER.Email) {
@@ -71,6 +71,7 @@ router.post('/login', async (req, res) => {
 			}
 		});
 	} catch (error) {
+		console.log(error)
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
