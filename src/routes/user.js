@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
+const auth = require('../middleware/auth')
+const {checkUserId}= require('../middleware/checkUserId')
 
 // POST request to create a new user
-router.post('/', userController.createUser);
+router.post('/',auth, userController.createUser);
 
 // GET request to get user by userId
-router.get('/:userId', userController.getUserById);
+router.get('/:userId', auth , checkUserId , userController.getUserById);
 
 // PUT request to update user by userId
 router.put('/:userId', userController.updateUser);
