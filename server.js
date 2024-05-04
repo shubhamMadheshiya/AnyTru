@@ -35,6 +35,8 @@ app.use('/', express.static(path.join(__dirname, '/public')));
 // routes
 app.use('/', require('./src/routes/root'));
 
+app.use('/auth', require('./src/routes/auth'))
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 mongoose.connection.once('open', () => {
