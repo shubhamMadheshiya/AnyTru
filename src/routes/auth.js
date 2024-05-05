@@ -81,7 +81,7 @@ router.post('/login', async (req, res) => {
 
 
 router.post('/register', async (req, res) => {
-	console.log(req.body)
+	
 	try {
 		const {userId, email, firstName, lastName, password } = req.body;
 
@@ -138,7 +138,8 @@ router.post('/register', async (req, res) => {
 		const registeredUser = await user.save();
 
 		const payload = {
-			id: registeredUser.id
+			id: registeredUser.id,
+			role: registeredUser.role,
 		};
 
 		// await mailgun.sendEmail(registeredUser.email, 'signup', null, registeredUser);
@@ -158,7 +159,7 @@ router.post('/register', async (req, res) => {
 			}
 		});
 	} catch (error) {
-		console.log(error)
+		
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
@@ -219,6 +220,7 @@ router.get(
 		res.redirect(`${keys.app.clientURL}/auth/success?token=${jwtToken}`);
 	}
 );
+
 
 
 module.exports = router;
