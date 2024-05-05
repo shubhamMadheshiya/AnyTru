@@ -1,12 +1,73 @@
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Controller function to create a new user
 exports.createUser = async (req, res) => {
 	try {
-		const newUser = await User.create(req.body);
-		res.status(201).json(newUser);
+		const { userId, email, firstName, lastName, password , role } = req.body;
+
+		if (!email) {
+			return res.status(400).json({ error: 'You must enter an email address.' });
+		}
+
+		if (!firstName) {
+			return res.status(400).json({ error: 'You must enter your  name.' });
+		}
+
+		if (!password) {
+			return res.status(400).json({ error: 'You must enter a password.' });
+		}
+
+		if (!userId) {
+			return res.status(400).json({ error: 'You must enter a userId.' });
+		}
+
+		const existingUserEmail = await User.findOne({ email });
+
+		if (existingUserEmail) {
+			return res.status(400).json({ error: 'That email address is already in use.' });
+		}
+		const existingUserId = await User.findOne({ userId });
+
+		if (existingUserId) {
+			return res.status(400).json({ error: 'That User Id address is already in use.' });
+		}
+
+		// Hash the password
+		const salt = await bcrypt.genSalt(10);
+		const hash = await bcrypt.hash(password, salt);
+
+		// Create a new user instance
+		const user = new User({
+			email,
+			userId,
+			firstName,
+			lastName,
+			password: hash, // Assign the hashed password
+            role,
+
+		});
+
+		const registeredUser = await user.save();
+
+		
+
+		res.status(200).json({
+			success: true,
+			// subscribed,
+			user: {
+				id: registeredUser.id,
+				firstName: registeredUser.firstName,
+				lastName: registeredUser.lastName,
+				email: registeredUser.email,
+				role: registeredUser.role
+			}
+		});
 	} catch (error) {
-		res.status(400).json({ message: error.message });
+		res.status(400).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
 	}
 };
 
@@ -26,8 +87,22 @@ exports.getUserById = async (req, res) => {
 
 // Controller function to update user by userId
 exports.updateUser = async (req, res) => {
+
+    	// Hash the password
+		const salt = await bcrypt.genSalt(10);
+		const hash = await bcrypt.hash(req.body.password, salt);
+   
+    const data = {
+			firstName: req.body.firstName,
+			lastName: req.body.lastName,
+			email: req.body.email,
+			phoneNumber: req.body.phoneNumber,
+			bio: req.body.bio,
+            avatar: req.body.avatar,
+            password: hash,
+		};
 	try {
-		const updatedUser = await User.findOneAndUpdate({ userId: req.params.userId }, req.body, { new: true });
+		const updatedUser = await User.findOneAndUpdate({_id: req.params.userId }, data , { new: true });
 		if (!updatedUser) {
 			return res.status(404).json({ message: 'User not found' });
 		}
@@ -40,7 +115,7 @@ exports.updateUser = async (req, res) => {
 // Controller function to delete user by userId
 exports.deleteUser = async (req, res) => {
 	try {
-		const deletedUser = await User.findOneAndDelete({ userId: req.params.userId });
+		const deletedUser = await User.findOneAndDelete({ _id: req.params.userId });
 		if (!deletedUser) {
 			return res.status(404).json({ message: 'User not found' });
 		}
@@ -65,7 +140,7 @@ exports.deleteUser = async (req, res) => {
 // Controller function to follow another user
 exports.followUser = async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId);
+        const user = await User.findById(req.user._id);
         const userToFollowId = req.params.userId;
 
         // Check if user is already following the user to be followed
@@ -77,10 +152,11 @@ exports.followUser = async (req, res) => {
         await user.save();
 
         // Update the user being followed
-        const userToFollow = await User.findByIdAndUpdate(userToFollowId, { $addToSet: { followers: req.user.userId } }, { new: true });
+        const userToFollow = await User.findByIdAndUpdate(userToFollowId, { $addToSet: { followers: req.user._id } }, { new: true });
 
         res.status(200).json({ message: 'You are now following the user', user: userToFollow });
     } catch (error) {
+        console.log(error)
         res.status(500).json({ message: error.message });
     }
 };
@@ -88,7 +164,7 @@ exports.followUser = async (req, res) => {
 // Controller function to unfollow a user
 exports.unfollowUser = async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId);
+        const user = await User.findById(req.user._id);
         const userToUnfollowId = req.params.userId;
 
         // Check if user is not following the user to be unfollowed
@@ -100,7 +176,7 @@ exports.unfollowUser = async (req, res) => {
         await user.save();
 
         // Update the user being unfollowed
-        await User.findByIdAndUpdate(userToUnfollowId, { $pull: { followers: req.user.userId } });
+        await User.findByIdAndUpdate(userToUnfollowId, { $pull: { followers: req.user._id } });
 
         res.status(200).json({ message: 'You have unfollowed the user' });
     } catch (error) {
