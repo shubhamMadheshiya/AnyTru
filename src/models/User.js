@@ -6,6 +6,10 @@ const userSchema = new mongoose.Schema({
 		type: String
 	},
 	firstName: {
+		type: String,
+		required: true
+	},
+	lastName: {
 		type: String
 	},
 	email: {
@@ -23,9 +27,8 @@ const userSchema = new mongoose.Schema({
 	phoneNumber: {
 		type: String
 	},
-	password:{
-		type:String,
-		
+	password: {
+		type: String
 	},
 	bio: {
 		type: String
@@ -46,8 +49,9 @@ const userSchema = new mongoose.Schema({
 	},
 	role: {
 		type: String,
-		default: ROLES.Member,
-		enum: [ROLES.Admin, ROLES.Member, ROLES.Merchant]
+		required: true,
+		default: ROLES.User,
+		enum: [ROLES.Admin, ROLES.User, ROLES.Merchant]
 	},
 	resetPasswordToken: { type: String },
 	resetPasswordExpires: { type: Date },

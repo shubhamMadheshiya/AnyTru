@@ -4,7 +4,7 @@
 	"description": "This is AnyTru rest api",
 	"main": "server.js",
 	"scripts": {
-		"generateDoc": "node swagger.js",
+		"swagger": "node swagger.js",
 		"dev": "nodemon server.js",
 		"start": "node server.js"
 	},
@@ -17,8 +17,10 @@
 	"author": "Shubham Kumar Maddheshiya <kr.shubhamgupta1999@gmail.com>",
 	"license": "ISC",
 	"dependencies": {
+		"bcryptjs": "^2.4.3",
 		"cookie-parser": "^1.4.6",
 		"cors": "^2.8.5",
+		"crypto": "^1.0.1",
 		"dotenv": "^16.4.5",
 		"express": "^4.19.2",
 		"http-errors": "^2.0.0",
@@ -27,6 +29,10 @@
 		"mongoose": "^8.3.3",
 		"multer": "^1.4.5-lts.1",
 		"nodemon": "^3.1.0",
+		"passport": "^0.7.0",
+		"passport-facebook": "^3.0.0",
+		"passport-google-oauth2": "^0.2.0",
+		"passport-jwt": "^4.0.1",
 		"swagger-ui-express": "^5.0.0"
 	},
 	"devDependencies": {
