@@ -59,35 +59,31 @@ The environment variables can be found and modified in the `.env` file.
 
 
 
-# Port
-PORT = # default 6000
+DATABASE_URI = 
+PORT = 5000
 
-# URL of the Mongo DB
-DATABASE_URI = mongodb://127.0.0.1:27017/database_name
+MAILCHIMP_KEY=
+MAILCHIMP_LIST_KEY=
 
-# JWT
-JWT_ACCESS_TOKEN_SECRET_PRIVATE =
-JWT_ACCESS_TOKEN_SECRET_PUBLIC =
-JWT_ACCESS_TOKEN_EXPIRATION_MINUTES = # default 240 minutes
 
-# Token expires
-REFRESH_TOKEN_EXPIRATION_DAYS = # default 1 day
-VERIFY_EMAIL_TOKEN_EXPIRATION_MINUTES = # default 60 minutes
-RESET_PASSWORD_TOKEN_EXPIRATION_MINUTES = # default 30 minutes
+MAILGUN_KEY =
+MAILGUN_DOMAIN=
+MAILGUN_EMAIL_SENDER=
 
-# SMTP configuration
-SMTP_HOST = smtp.googlemail.com
-SMTP_PORT = 465
-SMTP_USERNAME =
-SMTP_PASSWORD =
-EMAIL_FROM =
 
-# DOMAIN frontend
+JWT_SECRET=
 CLIENT_DOMAIN = 
 ADMIN_DOMAIN = 
 
-# URL images
-IMAGE_URL = # default http://localhost:666/images
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=
+
+FACEBOOK_CLIENT_ID=
+FACEBOOK_CLIENT_SECRET=
+FACEBOOK_CALLBACK_URL=
+
+CLIENT_URL=http://localhost:3000
 ```
 
 ## Project Structure
