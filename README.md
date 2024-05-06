@@ -102,6 +102,7 @@ public\             # Public folder
  |--css             # Static style
 src\
  |--config\         # Environment variables and configuration
+ |--constant\       # contain constant
  |--controllers\    # Controllers
  |--middlewares\    # Custom express middlewares
  |--models\         # Mongoose models
@@ -122,19 +123,17 @@ List of available routes:
 **Root routes**:\
 `GET /` - Root Page\
 
-<!-- 
-**Auth routes**:\
-`POST api/v1/auth/signup` - Signup\
-`POST api/v1/auth/signin` - Signin\
-`POST api/v1/auth/logout` - Logout\
-`POST api/v1/auth/refresh-tokens` - Refresh auth tokens\
-`POST api/v1/auth/forgot-password` - Send reset password email\
-`POST api/v1/auth/reset-password` - Reset password\
-`POST api/v1/auth/send-verification-email` - Send verification email\
-`POST api/v1/auth/verify-email` - Verify email\
-`POST api/v1/auth/me` - Profile\
-`PUT api/v1/auth/me` - Update profile
 
+**Auth routes**:\
+`POST auth/register` - Register User\
+`POST auth/login` - Login\
+`GET auth/google/callback` - Google auth\
+`GET auth/facebook/callback` - Refresh auth tokens\
+`POST auth/forgot` - Send reset password link at email\
+`POST auth/reset/:token` - Reset password\
+`POST auth/reset` - Reset password from old password\
+
+<!-- 
 **User routes**:\
 `POST api/v1/users` - Create a user\
 `GET api/v1/users` - Get all users\
@@ -150,8 +149,8 @@ List of available routes:
 `DELETE api/v1/roles/:userId` - Delete role
 
 **Image routes**:\
-`POST api/v1/images/upload` - Upload image -->
+`POST api/v1/images/upload` - Upload image --> -->
 
 <!-- ## License
 
-[MIT](LICENSE) -->
+[MIT](LICENSE)
