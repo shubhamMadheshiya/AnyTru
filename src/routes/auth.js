@@ -9,8 +9,8 @@ const auth = require('../middleware/auth');
 
 // Bring in Models & Helpers
 const User = require('../models/User');
-// const mailchimp = require('../../services/mailchimp');
-// const mailgun = require('../../services/mailgun');
+const mailchimp = require('../services/mailchimp');
+const mailgun = require('../services/mailgun');
 const keys = require('../config/keys')
 const { EMAIL_PROVIDER, JWT_COOKIE } = require('../constants/index');
 
@@ -83,7 +83,7 @@ router.post('/login', async (req, res) => {
 router.post('/register', async (req, res) => {
 	
 	try {
-		const {userId, email, firstName, lastName, password } = req.body;
+		const { userId, email, firstName, lastName, password, isSubscribed } = req.body;
 
 		if (!email) {
 			return res.status(400).json({ error: 'You must enter an email address.' });
@@ -112,14 +112,20 @@ router.post('/register', async (req, res) => {
 			return res.status(400).json({ error: 'That User Id address is already in use.' });
 		}
 
-		// let subscribed = false;
-		// if (isSubscribed) {
-		// 	const result = await mailchimp.subscribeToNewsletter(email);
-
-		// 	if (result.status === 'subscribed') {
-		// 		subscribed = true;
-		// 	}
-		// }
+		let subscribed = false;
+		if (isSubscribed) {
+			try {
+				const result = await mailchimp.subscribeToNewsletter(email);
+				if (result.status === 'subscribed') {
+					subscribed = true;
+				}
+				
+			} catch (error) {
+				console.log(error)
+				
+			}
+			
+		}
 
 		// Hash the password
 		const salt = await bcrypt.genSalt(10);
@@ -142,13 +148,23 @@ router.post('/register', async (req, res) => {
 			role: registeredUser.role,
 		};
 
-		// await mailgun.sendEmail(registeredUser.email, 'signup', null, registeredUser);
+		try {
+			console.log(registeredUser.email)
+			const result = await mailgun.sendEmail(registeredUser.email, 'signup', null, registeredUser);
+			console.log(result)
+			
+		} catch (error) {
+			console.log(error)
+			
+		}
+
+		
 
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 
 		res.status(200).json({
 			success: true,
-			// subscribed,
+			subscribed,
 			token: `Bearer ${token}`,
 			user: {
 				id: registeredUser.id,
@@ -159,12 +175,137 @@ router.post('/register', async (req, res) => {
 			}
 		});
 	} catch (error) {
+		console.log(error)
 		
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
+
+
+
+router.post('/forgot', async (req, res) => {
+	try {
+		const { email } = req.body;
+
+		if (!email) {
+			return res.status(400).json({ error: 'You must enter an email address.' });
+		}
+
+		const existingUser = await User.findOne({ email });
+
+		if (!existingUser) {
+			return res.status(400).send({ error: 'No user found for this email address.' });
+		}
+
+		const buffer = crypto.randomBytes(48);
+		const resetToken = buffer.toString('hex');
+
+		existingUser.resetPasswordToken = resetToken;
+		existingUser.resetPasswordExpires = Date.now() + 3600000;
+
+		existingUser.save();
+		console.log(req.headers.host2);
+
+		await mailgun.sendEmail(existingUser.email, 'reset', req.headers.host, resetToken);
+
+		res.status(200).json({
+			success: true,
+			message: 'Please check your email for the link to reset your password.'
+		});
+	} catch (error) {
+		res.status(400).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
+	}
+});
+
+router.post('/reset/:token', async (req, res) => {
+	try {
+		const { password } = req.body;
+
+		if (!password) {
+			return res.status(400).json({ error: 'You must enter a password.' });
+		}
+
+		const resetUser = await User.findOne({
+			resetPasswordToken: req.params.token,
+			resetPasswordExpires: { $gt: Date.now() }
+		});
+
+		if (!resetUser) {
+			return res.status(400).json({
+				error: 'Your token has expired. Please attempt to reset your password again.'
+			});
+		}
+
+		const salt = await bcrypt.genSalt(10);
+		const hash = await bcrypt.hash(password, salt);
+
+		resetUser.password = hash;
+		resetUser.resetPasswordToken = undefined;
+		resetUser.resetPasswordExpires = undefined;
+
+		resetUser.save();
+
+		await mailgun.sendEmail(resetUser.email, 'reset-confirmation');
+
+		res.status(200).json({
+			success: true,
+			message: 'Password changed successfully. Please login with your new password.'
+		});
+	} catch (error) {
+		res.status(400).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
+	}
+});
+
+router.post('/reset', auth, async (req, res) => {
+	try {
+		const { password, confirmPassword } = req.body;
+		const email = req.user.email;
+
+		if (!email) {
+			return res.status(401).send('Unauthenticated');
+		}
+
+		if (!password) {
+			return res.status(400).json({ error: 'You must enter a password.' });
+		}
+
+		const existingUser = await User.findOne({ email });
+		if (!existingUser) {
+			return res.status(400).json({ error: 'That email address is already in use.' });
+		}
+
+		const isMatch = await bcrypt.compare(password, existingUser.password);
+
+		if (!isMatch) {
+			return res.status(400).json({ error: 'Please enter your correct old password.' });
+		}
+
+		const salt = await bcrypt.genSalt(10);
+		const hash = await bcrypt.hash(confirmPassword, salt);
+		existingUser.password = hash;
+		existingUser.save();
+
+		await mailgun.sendEmail(existingUser.email, 'reset-confirmation');
+
+		res.status(200).json({
+			success: true,
+			message: 'Password changed successfully. Please login with your new password.'
+		});
+	} catch (error) {
+		console.log(error)
+		res.status(400).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
+	}
+});
+
+
 
 
 
