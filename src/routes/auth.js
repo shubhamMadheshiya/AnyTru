@@ -239,7 +239,7 @@ router.post('/reset/:token', async (req, res) => {
 				error: 'Your token has expired. Please attempt to reset your password again.'
 			});
 		}
-
+// shubham kumar maddheshiya
 		const salt = await bcrypt.genSalt(10);
 		const hash = await bcrypt.hash(password, salt);
 
