@@ -4,31 +4,32 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const passport = require('passport');
+const User = require('../models/User');
+const { authorizeRole } = require('../middleware/authorizeRole');
+const { ROLES } = require('../constants/index');
 
 const auth = require('../middleware/auth');
 
 // Bring in Models & Helpers
-const User = require('../models/User');
 const mailchimp = require('../services/mailchimp');
 const mailgun = require('../services/mailgun');
-const keys = require('../config/keys')
+const keys = require('../config/keys');
 const { EMAIL_PROVIDER, JWT_COOKIE } = require('../constants/index');
 
 const { secret, tokenLife } = keys.jwt;
 
-
 router.post('/login', async (req, res) => {
 	try {
-	const { identifier, password } = req.body;
+		const { identifier, password } = req.body;
 
-    // Check if identifier and password are provided
-    if (!identifier || !password) {
-      return res.status(400).json({ error: 'Both identifier and password are required.' });
-    }
+		// Check if identifier and password are provided
+		if (!identifier || !password) {
+			return res.status(400).json({ error: 'Both identifier and password are required.' });
+		}
 
-    // Find user by email or userId
-    const user = await User.findOne({ $or: [{ email: identifier }, { userId: identifier }] });
-	console.log(user)
+		// Find user by email or userId
+		const user = await User.findOne({ $or: [{ email: identifier }, { userId: identifier }] });
+		console.log(user);
 
 		if (!user) {
 			return res.status(400).send({ error: 'No user found for this address.' });
@@ -51,7 +52,7 @@ router.post('/login', async (req, res) => {
 
 		const payload = {
 			id: user.id,
-			role:user.role,
+			role: user.role
 		};
 
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
@@ -72,16 +73,14 @@ router.post('/login', async (req, res) => {
 			}
 		});
 	} catch (error) {
-		console.log(error)
+		console.log(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
 
-
 router.post('/register', async (req, res) => {
-	
 	try {
 		const { userId, email, firstName, lastName, password, isSubscribed } = req.body;
 
@@ -89,7 +88,7 @@ router.post('/register', async (req, res) => {
 			return res.status(400).json({ error: 'You must enter an email address.' });
 		}
 
-		if (!firstName ) {
+		if (!firstName) {
 			return res.status(400).json({ error: 'You must enter your  name.' });
 		}
 
@@ -119,12 +118,9 @@ router.post('/register', async (req, res) => {
 				if (result.status === 'subscribed') {
 					subscribed = true;
 				}
-				
 			} catch (error) {
-				console.log(error)
-				
+				console.log(error);
 			}
-			
 		}
 
 		// Hash the password
@@ -140,25 +136,20 @@ router.post('/register', async (req, res) => {
 			password: hash // Assign the hashed password
 		});
 
-		
 		const registeredUser = await user.save();
 
 		const payload = {
 			id: registeredUser.id,
-			role: registeredUser.role,
+			role: registeredUser.role
 		};
 
 		try {
-			console.log(registeredUser.email)
+			console.log(registeredUser.email);
 			const result = await mailgun.sendEmail(registeredUser.email, 'signup', null, registeredUser);
-			console.log(result)
-			
+			console.log(result);
 		} catch (error) {
-			console.log(error)
-			
+			console.log(error);
 		}
-
-		
 
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 
@@ -175,15 +166,13 @@ router.post('/register', async (req, res) => {
 			}
 		});
 	} catch (error) {
-		console.log(error)
-		
+		console.log(error);
+
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
-
-
 
 router.post('/forgot', async (req, res) => {
 	try {
@@ -298,16 +287,12 @@ router.post('/reset', auth, async (req, res) => {
 			message: 'Password changed successfully. Please login with your new password.'
 		});
 	} catch (error) {
-		console.log(error)
+		console.log(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
-
-
-
-
 
 router.get(
 	'/google',
@@ -326,13 +311,19 @@ router.get(
 		session: false
 	}),
 	(req, res) => {
+		const userId = req.user.userId;
+		// TODO find another way to send the token to frontend
+		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
+		const jwtToken = `Bearer ${token}`;
+
+		if (!userId) {
+			return res.redirect(`${keys.app.clientURL}/auth/userId?token=${jwtToken}`);
+		}
+
 		const payload = {
 			id: req.user.id
 		};
 
-		// TODO find another way to send the token to frontend
-		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
-		const jwtToken = `Bearer ${token}`;
 		// res.redirect(`${keys.app.clientURL}/dashboard`)
 		res.redirect(`${keys.app.clientURL}/auth/success?token=${jwtToken}`);
 	}
@@ -362,6 +353,52 @@ router.get(
 	}
 );
 
+// Add a route to handle user ID submission
+router.post('/user-id', auth, async (req, res) => {
+	try {
+		const { isSubscribed, userId } = req.body;
 
+		if (!userId) {
+			return res.status(400).json({ error: 'You must enter a user ID.' });
+		}
+
+		let user = await User.findOne({ userId });
+
+		if (user) {
+			return res.status(400).json({ error: 'User already exist.' });
+		}
+
+		user.userId = userId;
+
+		await user.save();
+
+		let subscribed = false;
+		if (isSubscribed) {
+			try {
+				const result = await mailchimp.subscribeToNewsletter(email);
+				if (result.status === 'subscribed') {
+					subscribed = true;
+				}
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		res.status(200).json({
+			success: true,
+			subscribed,
+			user: {
+				id: registeredUser.id,
+				firstName: registeredUser.firstName,
+				lastName: registeredUser.lastName,
+				email: registeredUser.email,
+				role: registeredUser.role
+			}
+		});
+	} catch (error) {
+		console.log(error);
+		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
+	}
+});
 
 module.exports = router;

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { ROLES} = require('../constants/index')
+
 const userController = require('../controllers/user.controller');
 const auth = require('../middleware/auth')
 const {authorizeRole} = require('../middleware/authorizeRole')
+const { ROLES } = require('../constants/index');
 const {checkUserId}= require('../middleware/checkUserId')
 
 
