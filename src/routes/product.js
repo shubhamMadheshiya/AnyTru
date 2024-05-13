@@ -16,10 +16,13 @@ const {
   getStoreProductsWishListQuery
 } = require('../utils/queries');
 const { ROLES } = require('../constants');
+const product = require('../models/product');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+
+//complete
 // fetch product slug api
 router.get('/item/:slug', async (req, res) => {
   try {
@@ -27,15 +30,15 @@ router.get('/item/:slug', async (req, res) => {
 
     const productDoc = await Product.findOne({ slug, isActive: true }).populate(
       {
-        path: 'brand',
+        path: 'user',
         select: 'name isActive slug'
       }
     );
 
-    const hasNoBrand =
-      productDoc?.brand === null || productDoc?.brand?.isActive === false;
+    const hasNoUser =
+      productDoc?.user === null || productDoc?.user?.isActive === false;
 
-    if (!productDoc || hasNoBrand) {
+    if (!productDoc || hasNoUser) {
       return res.status(404).json({
         message: 'No product found.'
       });
@@ -45,12 +48,14 @@ router.get('/item/:slug', async (req, res) => {
       product: productDoc
     });
   } catch (error) {
+    console.log(error)
     res.status(400).json({
       error: 'Your request could not be processed. Please try again.'
     });
   }
 });
 
+// complete
 // fetch product name search api
 router.get('/list/search/:name', async (req, res) => {
   try {
@@ -161,7 +166,11 @@ router.get('/list', async (req, res) => {
   }
 });
 
-router.get('/list/select', auth, async (req, res) => {
+//complete
+
+// fetch product by user
+
+router.get('/list/select',  async (req, res) => {
   try {
     const products = await Product.find({}, 'name');
 
@@ -175,11 +184,12 @@ router.get('/list/select', auth, async (req, res) => {
   }
 });
 
+//complete
+
 // add product api
 router.post(
   '/add',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
   upload.single('image'),
   async (req, res) => {
     try {
@@ -190,8 +200,10 @@ router.post(
       const price = req.body.price;
       const taxable = req.body.taxable;
       const isActive = req.body.isActive;
-      const brand = req.body.brand;
+      const user = req.user._id;
       const image = req.file;
+      const tags = req.body.tags;
+      console.log(req.body.tags)
 
       if (!sku) {
         return res.status(400).json({ error: 'You must enter sku.' });
@@ -227,9 +239,10 @@ router.post(
         price,
         taxable,
         isActive,
-        brand,
+        user,
         imageUrl,
-        imageKey
+        imageKey,
+        tags,
       });
 
       const savedProduct = await product.save();
@@ -240,6 +253,7 @@ router.post(
         product: savedProduct
       });
     } catch (error) {
+      console.log(error)
       return res.status(400).json({
         error: 'Your request could not be processed. Please try again.'
       });
@@ -247,11 +261,11 @@ router.post(
   }
 );
 
-// fetch products api
+// fetch products api of particular user
 router.get(
   '/',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
+  role.check(ROLES.Admin, ROLES.User),
   async (req, res) => {
     try {
       let products = [];
@@ -293,11 +307,11 @@ router.get(
   }
 );
 
-// fetch product api
+// fetch product api of particular product by it's Id
 router.get(
   '/:id',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
+  role.check(ROLES.Admin, ROLES.User),
   async (req, res) => {
     try {
       const productId = req.params.id;
@@ -341,16 +355,22 @@ router.get(
   }
 );
 
+
+// completed
+
+//update product by Id (user and Admin)
+
 router.put(
   '/:id',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
+  role.check(ROLES.Admin, ROLES.User),
   async (req, res) => {
+    console.log(req.body)
     try {
       const productId = req.params.id;
-      const update = req.body.product;
+      const update = req.body;
       const query = { _id: productId };
-      const { sku, slug } = req.body.product;
+      const { sku, slug } = req.body;
 
       const foundProduct = await Product.findOne({
         $or: [{ slug }, { sku }]
@@ -371,6 +391,7 @@ router.put(
         message: 'Product has been updated successfully!'
       });
     } catch (error) {
+      console.log(error)
       res.status(400).json({
         error: 'Your request could not be processed. Please try again.'
       });
@@ -381,7 +402,7 @@ router.put(
 router.put(
   '/:id/active',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
+  role.check(ROLES.Admin, ROLES.User),
   async (req, res) => {
     try {
       const productId = req.params.id;
@@ -404,10 +425,13 @@ router.put(
   }
 );
 
+
+//completed
+//delete productby Id (Admin & User)
 router.delete(
   '/delete/:id',
   auth,
-  role.check(ROLES.Admin, ROLES.Merchant),
+  role.check(ROLES.Admin, ROLES.User),
   async (req, res) => {
     try {
       const product = await Product.deleteOne({ _id: req.params.id });
