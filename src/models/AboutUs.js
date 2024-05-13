@@ -5,7 +5,7 @@ const aboutUsSchema = new mongoose.Schema({
 	content: {
 		type: String,
 		required: true,
-        default:"About AnyTru"
+        default:"About AnyTru yet not Created"
 	}
 },{timestamps: true});
 
