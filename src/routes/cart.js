@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require ('express');
 const router = express.Router();
 
 // Bring in Models & Utils
@@ -11,8 +11,10 @@ router.post('/add', auth, async (req, res) => {
   try {
     const user = req.user._id;
     const items = req.body.products;
+    
 
     const products = store.caculateItemsSalesTax(items);
+    console.log(products)
 
     const cart = new Cart({
       user,
@@ -28,6 +30,7 @@ router.post('/add', auth, async (req, res) => {
       cartId: cartDoc.id
     });
   } catch (error) {
+    console.log(error)
     res.status(400).json({
       error: 'Your request could not be processed. Please try again.'
     });
