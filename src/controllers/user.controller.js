@@ -126,6 +126,33 @@ exports.deleteUser = async (req, res) => {
 };
 
 
+// Controller function to get followers of a user by userId
+exports.getFollowers = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId).populate('followers', 'firstName lastName email');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json(user.followers);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Controller function to get users followed by a user by userId
+exports.getFollowing = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId).populate('following', 'firstName lastName email');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json(user.following);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 
 
 
