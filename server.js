@@ -42,6 +42,9 @@ app.use('/', require('./src/routes/root'));
 app.use('/auth', require('./src/routes/auth'))
 app.use('/user', require('./src/routes/user'))
 app.use('/logout', require('./src/routes/logout'))
+app.use('/product', require('./src/routes/product'));
+app.use('/wishlist', require('./src/routes/wishlist'));
+app.use('/cart', require('./src/routes/cart'));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 

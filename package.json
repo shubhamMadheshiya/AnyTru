@@ -17,6 +17,7 @@
 	"author": "Shubham Kumar Maddheshiya <kr.shubhamgupta1999@gmail.com>",
 	"license": "ISC",
 	"dependencies": {
+		"aws-sdk": "^2.1618.0",
 		"bcryptjs": "^2.4.3",
 		"cookie-parser": "^1.4.6",
 		"cors": "^2.8.5",
@@ -32,6 +33,7 @@
 		"mongodb": "^6.5.0",
 		"mongoose": "^8.3.3",
 		"mongoose-slug-generator": "^1.0.4",
+		"mongoose-slug-updater": "^3.3.0",
 		"multer": "^1.4.5-lts.1",
 		"nodemon": "^3.1.0",
 		"passport": "^0.7.0",
