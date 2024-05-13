@@ -83,6 +83,10 @@ const userSchema = new mongoose.Schema({
 	},
 	vandorName: {
 		type: String
+	},
+	isActive:{
+		type: Boolean,
+		default:true,
 	}
 });
 
