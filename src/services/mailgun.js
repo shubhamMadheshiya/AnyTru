@@ -28,7 +28,7 @@ exports.sendEmail = async (email, type, host, data) => {
     console.log('email', email)
 
     const config = {
-      from: `MERN Store! <${sender}>`,
+      from: `AnyTru! <${sender}>`,
       to: email,
       subject: message.subject,
       text: message.text
