@@ -47,6 +47,7 @@ app.use('/wishlist', require('./src/routes/wishlist'));
 app.use('/cart', require('./src/routes/cart'));
 app.use('/address', require('./src/routes/address'));
 app.use('/aboutUs', require('./src/routes/aboutUs'));
+app.use('/t&c', require('./src/routes/t&c'));
 
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
