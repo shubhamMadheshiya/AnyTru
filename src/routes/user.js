@@ -44,4 +44,12 @@ router.post('/rate', userController.rateUser);
 // POST request to switch account type
 router.post('/switch-account', userController.switchAccountType);
 
+
+// GET request to get followers of a user by userId
+router.get('/:userId/followers', auth,  userController.getFollowers);
+
+// GET request to get users followed by a user by userId
+router.get('/:userId/following', auth,  userController.getFollowing);
+
+
 module.exports = router;
