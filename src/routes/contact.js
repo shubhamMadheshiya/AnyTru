@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 // Bring in Models & Helpers
-const Contact = require('../../models/contact');
-const mailgun = require('../../services/mailgun');
+const Contact = require('../models/contact');
+const mailgun = require('../services/mailgun');
 
 router.post('/add', async (req, res) => {
   try {
