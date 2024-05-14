@@ -401,4 +401,37 @@ router.post('/user-id', auth, async (req, res) => {
 	}
 });
 
+// Subscribe to newsletter route
+router.post('/subscribe', async (req, res) => {
+	try {
+		const email = req.body.email;
+		const alreadySubscribed = await mailchimp.isSubscribed(email);
+		if (alreadySubscribed) {
+			return res.status(400).json({ error: 'User already subscribed' });
+		}
+
+		const result = await mailchimp.subscribeToNewsletter(email);
+		res.status(200).json({ success: true, message: 'Subscribed to newsletter successfully.' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ success: false, error: 'Failed to subscribe to newsletter.' });
+	}
+});
+
+// Unsubscribe from newsletter route
+router.post('/unsubscribe', async (req, res) => {
+	try {
+		const email = req.body.email;
+		const alreadySubscribed = await mailchimp.isSubscribed(email);
+		if (!alreadySubscribed) {
+			return res.status(400).json({ error: 'User is not subscribed' });
+		}
+		const result = await mailchimp.unsubscribeFromNewsletter(email);
+		res.status(200).json({ success: true, message: 'Unsubscribed from newsletter successfully.' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ success: false, error: 'Failed to unsubscribe from newsletter.' });
+	}
+});
+
 module.exports = router;
