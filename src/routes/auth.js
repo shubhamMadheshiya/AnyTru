@@ -257,7 +257,7 @@ router.post('/reset', auth, async (req, res) => {
 		const email = req.user.email;
 
 		if (!email) {
-			return res.status(401).send('Unauthenticated');
+			return res.status(401).send({error:'Unauthenticated'});
 		}
 
 		if (!password) {
