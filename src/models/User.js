@@ -75,11 +75,16 @@ const userSchema = new mongoose.Schema({
 		enum: ['creater', 'seller'],
 		default: 'creater'
 	},
-	// merchant: {
-	// 	type: mongoose.Schema.Types.ObjectId,
-	// 	ref: 'Merchant',
-	// 	default: null
-	// },
+	merchant: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'merchant',
+		default: null
+	},
+	vendor: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'Vendor',
+		default: null
+	},
 	rating: {
 		type: Number,
 		min: 1,
