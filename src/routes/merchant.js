@@ -375,7 +375,7 @@ const createMerchantUser = async (merchantDoc) => {
 			user: merchantDoc.user._id,
 			description: merchantDoc.business,
 			merchant: merchantDoc._id,
-			isActive: false
+			isActive: true
 		});
 
 		const vendorDoc = await newVendor.save();
