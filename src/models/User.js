@@ -75,6 +75,11 @@ const userSchema = new mongoose.Schema({
 		enum: ['creater', 'seller'],
 		default: 'creater'
 	},
+	// merchant: {
+	// 	type: mongoose.Schema.Types.ObjectId,
+	// 	ref: 'Merchant',
+	// 	default: null
+	// },
 	rating: {
 		type: Number,
 		min: 1,
@@ -84,9 +89,9 @@ const userSchema = new mongoose.Schema({
 	vandorName: {
 		type: String
 	},
-	isActive:{
+	isActive: {
 		type: Boolean,
-		default:true,
+		default: true
 	}
 });
 
