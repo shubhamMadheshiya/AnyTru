@@ -59,7 +59,7 @@ const prepareTemplate = (type, host, data) => {
 			break;
 
 		case 'merchant-welcome':
-			message = template.merchantWelcome(data);
+			message = template.merchantWelcome(data,sender);
 			break;
       case 'merchant-approve':
         message = template.merchantRegistration(data, sender);
