@@ -13,6 +13,18 @@ exports.resetEmail = (host, resetToken) => {
 	return message;
 };
 
+exports.merchantReject = (name, sender) => {
+	const message = {
+		subject: 'Application Rejection AnyTru',
+		text: `Dear ${name}, \n
+We regret to inform you that your merchant application has been rejected. For further details, please contact our support team at ${sender}.\n
+Best regards,
+AnyTru`
+	};
+
+	return message;
+};
+
 exports.confirmResetPasswordEmail = () => {
 	const message = {
 		subject: 'Password Changed',
@@ -36,39 +48,14 @@ exports.merchantSignup = (host, { resetToken, email }) => {
 
 	return message;
 };
-exports.merchantRegistration = (name, sender) => {
+
+exports.merchantWelcome = (name, sender) => {
 	const message = {
-		subject: 'Merchant Approve',
-		text: `Dear ${name},
-
-Thank you for registering as a merchant with us. We appreciate your interest in joining our platform.
-Your application is currently under review. Rest assured, we will notify you as soon as it is approved.
-If you have any questions or need assistance, feel free to contact our support team at ${sender}.
-
-Best regards,
-AnyTru`
-	};
-
-	return message;
-};
-exports.merchantApprove = (name) => {
-	const message = {
-		subject: 'Merchant Approve',
+		subject: 'Welcome to AnyTru',
 		text:
-			`Hi ${name}! Congratulations! Your application for merchant account has been Approve. \n\n` +
-			`It looks like you already have a member account with us. Please sign in with your member credentials and you will be able to see your merchant account.`
-	};
-
-	return message;
-};
-
-exports.merchantReject = (name, sender) => {
-	const message = {
-		subject: 'Merchant Registration',
-		text: `Dear ${name}, 
-We regret to inform you that your merchant application has been rejected. For further details, please contact our support team at ${sender}.\n
-Best regards,
-AnyTru`
+			`Hi ${name}! Congratulations! Your application for merchant account has been accepted. \n\n` +
+			`It looks like you already have a member account with us. Please sign in with your member credentials and you will be able to see your merchant account.
+      for further query contact us on ${sender}`
 	};
 
 	return message;
@@ -77,7 +64,7 @@ AnyTru`
 exports.signupEmail = (name) => {
 	const message = {
 		subject: 'Account Registration',
-		text: `Hi ${name.firstName} ${name.lastName}! Thank you for creating an account with us!.`
+		text: `Hi ${name.firstName} ! Thank you for creating an account with us!.`
 	};
 
 	return message;
@@ -105,7 +92,7 @@ exports.contactEmail = () => {
 
 exports.merchantApplicationEmail = () => {
 	const message = {
-		subject: 'Sell on MERN Store',
+		subject: 'Registation AnyTru',
 		text: `We received your request! Our team will contact you soon. \n\n`
 	};
 
@@ -114,7 +101,7 @@ exports.merchantApplicationEmail = () => {
 
 exports.merchantDeactivateAccount = () => {
 	const message = {
-		subject: 'Merchant account on MERN Store',
+		subject: 'Merchant account on AnyTru',
 		text: `Your merchant account has been disabled. \n\n` + `Please contact admin to request access again.`
 	};
 
