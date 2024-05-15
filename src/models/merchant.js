@@ -66,9 +66,9 @@ const MerchantSchema = new Schema({
 		type: Boolean,
 		default: false
 	},
-	brand: {
+	vendor: {
 		type: Schema.Types.ObjectId,
-		ref: 'Brand',
+		ref: 'Vendor',
 		default: null
 	},
 	user: {
