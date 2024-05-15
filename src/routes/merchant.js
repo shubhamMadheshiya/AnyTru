@@ -29,8 +29,7 @@ router.post('/add', auth, role.check(ROLES.User), async (req, res) => {
 		if (!findUser.phoneNumber) {
 			return res.status(400).json({ error: 'You must update your phone Number in profile section.' });
 		}
-
-		const findMerchant = await Merchant.find({ user: userId });
+		const findMerchant = await Merchant.findOne({ user: userId });
 		if (findMerchant) {
 			return res.status(400).json({ error: 'This User already have Merchant Account' });
 		}
@@ -40,7 +39,7 @@ router.post('/add', auth, role.check(ROLES.User), async (req, res) => {
 		//   match: { email: authorEmail } // Match the author's email
 		// });
 
-		console.log(findMerchant);
+		// console.log(findMerchant);
 
 		const { brandId, bankName, accNumber, ifsc, upi, pan, gstin, adharNumber, business } = req.body;
 
@@ -116,7 +115,7 @@ router.get('/', auth, async (req, res) => {
 		const { page = 1, limit = 10 } = req.query;
 
 		const merchants = await Merchant.find()
-			.populate('brand')
+			.populate('user')
 			.sort('-created')
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
@@ -131,6 +130,7 @@ router.get('/', auth, async (req, res) => {
 			count
 		});
 	} catch (error) {
+    console.log(error)
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
@@ -141,7 +141,7 @@ router.get('/', auth, async (req, res) => {
 router.put('/:id/active', auth, async (req, res) => {
 	try {
 		const merchantId = req.params.id;
-		const update = req.body.merchant;
+		const update = req.body.isActive;
 		const query = { _id: merchantId };
 
 		const merchantDoc = await Merchant.findOneAndUpdate(query, update, {
@@ -172,13 +172,13 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 			isActive: true
 		};
 
-    const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
+		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
 		if (me.status === MERCHANT_STATUS.Approved) {
 			return res.status(400).json({
 				error: 'This Request already has been approved.'
 			});
 		}
-    if (me.user.role === ROLES.Merchant) {
+		if (me.user.role === ROLES.Merchant) {
 			return res.status(400).json({
 				error: 'User already have Merchant Account.'
 			});
@@ -187,14 +187,11 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 			new: true
 		}).populate({ path: 'user', select: 'email firstName _id role' });
 
-		await mailgun.sendEmail(merchantDoc.user.email, 'merchant-approve', null, merchantDoc.user.firstName);
+		// await mailgun.sendEmail(merchantDoc.user.email, 'merchant-approve', null, merchantDoc.user.firstName);
 		console.log(merchantDoc.user);
-		await createMerchantUser({
-			userId: merchantDoc.user._id,
-			merchantId,
-			brandId: merchantDoc.brandId,
-			discription: merchantDoc.business
-		});
+		await createMerchantUser(
+			merchantDoc
+		);
 
 		res.status(200).json({
 			success: true
@@ -216,7 +213,17 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		const update = {
 			status: MERCHANT_STATUS.Rejected
 		};
-
+		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
+		if (me.status === MERCHANT_STATUS.Rejected) {
+			return res.status(400).json({
+				error: 'This Request already has been rejected.'
+			});
+		}
+		if (me.user.role === ROLES.Merchant) {
+			return res.status(400).json({
+				error: 'User already have Merchant Account.'
+			});
+		}
 		const merchantDoc = await Merchant.findOneAndUpdate(query, update, {
 			new: true
 		}).populate({ path: 'user', select: 'email firstName' });
@@ -289,9 +296,22 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 // });
 
 router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => {
+
 	try {
 		const merchantId = req.params.id;
-		await deactivateBrand(merchantId);
+		// await deactivateBrand(merchantId);
+    
+		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
+		if (me.status === MERCHANT_STATUS.Approved) {
+			return res.status(400).json({
+				error: 'This Request already has been approved you can not delete.'
+			});
+		}
+		if (me.user.role === ROLES.Merchant) {
+			return res.status(400).json({
+				error: 'User already have Merchant Account you can not delete.'
+			});
+		}
 		const merchant = await Merchant.deleteOne({ _id: merchantId });
 
 		res.status(200).json({
@@ -300,24 +320,25 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 			merchant
 		});
 	} catch (error) {
+    console.log(error)
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
 
-const deactivateBrand = async (merchantId) => {
-	const merchantDoc = await Merchant.findOne({ _id: merchantId }).populate('brand', '_id');
-	if (!merchantDoc || !merchantDoc.brand) return;
-	const brandId = merchantDoc.brand._id;
-	const query = { _id: brandId };
-	const update = {
-		isActive: false
-	};
-	return await Brand.findOneAndUpdate(query, update, {
-		new: true
-	});
-};
+// const deactivateBrand = async (merchantId) => {
+// 	const merchantDoc = await Merchant.findOne({ _id: merchantId }).populate('brand', '_id');
+// 	if (!merchantDoc || !merchantDoc.brand) return;
+// 	const brandId = merchantDoc.brand._id;
+// 	const query = { _id: brandId };
+// 	const update = {
+// 		isActive: false
+// 	};
+// 	return await Brand.findOneAndUpdate(query, update, {
+// 		new: true
+// 	});
+// };
 
 // const createMerchantBrand = async ({ userId, merchantId, brandId, description }) => {
 // 	try {
@@ -344,26 +365,29 @@ const deactivateBrand = async (merchantId) => {
 // 	}
 // };
 
-const createMerchantUser = async ({ userId, merchantId, brandId, description }) => {
+const createMerchantUser = async (merchantDoc) => {
+
+
+  console.log(merchantDoc)
 	try {
 		const newVendor = new Vendor({
-			name: brandId,
-			user: userId,
-			description: description,
-			merchant: merchantId,
+			name: merchantDoc.brandId,
+			user: merchantDoc.user._id,
+			description: merchantDoc.business,
+			merchant: merchantDoc._id,
 			isActive: false
 		});
 
 		const vendorDoc = await newVendor.save();
 
-		const query = { _id: userId };
+		const query = { _id: merchantDoc.user._id };
 		const update = {
 			vendor: vendorDoc._id,
-			merchant: merchantId,
+			merchant: merchantDoc._id,
 			role: ROLES.Merchant
 		};
 
-		// await mailgun.sendEmail(existingUser.email, 'merchant-welcome', null, existingUser.firstName);
+		await mailgun.sendEmail(merchantDoc.user.email, 'merchant-welcome', null, merchantDoc.user.firstName);
 
 		return await User.findOneAndUpdate(query, update, { new: true });
 	} catch (error) {
