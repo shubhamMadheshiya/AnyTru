@@ -6,87 +6,92 @@ const keys = require('../config/keys');
 const { key, domain, sender } = keys.mailgun;
 
 class MailgunService {
- 
-  init() {
-    try {
-       
-      return new Mailgun({
-        apiKey: key,
-        domain: domain
-      });
-    } catch (error) {
-      console.warn('Missing mailgun keys');
-    }
-  }
+	init() {
+		try {
+			return new Mailgun({
+				apiKey: key,
+				domain: domain
+			});
+		} catch (error) {
+			console.warn('Missing mailgun keys');
+		}
+	}
 }
 
 const mailgun = new MailgunService().init();
 
 exports.sendEmail = async (email, type, host, data) => {
-  try {
-    const message = prepareTemplate(type, host, data);
-    console.log('email', email)
+	try {
+		const message = prepareTemplate(type, host, data);
+		console.log('email', email);
 
-    const config = {
-      from: `AnyTru! <${sender}>`,
-      to: email,
-      subject: message.subject,
-      text: message.text
-    };
+		const config = {
+			from: `AnyTru! <${sender}>`,
+			to: email,
+			subject: message.subject,
+			text: message.text
+		};
 
-    return await mailgun.messages().send(config);
-  } catch (error) {
-    return error;
-  }
+		return await mailgun.messages().send(config);
+	} catch (error) {
+		return error;
+	}
 };
 
 const prepareTemplate = (type, host, data) => {
-  let message;
+	let message;
 
-  switch (type) {
-    case 'reset':
-      message = template.resetEmail(host, data);
-      break;
+	switch (type) {
+		case 'reset':
+			message = template.resetEmail(host, data);
+			break;
 
-    case 'reset-confirmation':
-      message = template.confirmResetPasswordEmail();
-      break;
+		case 'reset-confirmation':
+			message = template.confirmResetPasswordEmail();
+			break;
 
-    case 'signup':
-      message = template.signupEmail(data);
-      break;
+		case 'signup':
+			message = template.signupEmail(data);
+			break;
 
-    case 'merchant-signup':
-      message = template.merchantSignup(host, data);
-      break;
+		case 'merchant-signup':
+			message = template.merchantSignup(host, data);
+			break;
 
-    case 'merchant-welcome':
-      message = template.merchantWelcome(data);
-      break;
+		case 'merchant-welcome':
+			message = template.merchantWelcome(data);
+			break;
+      case 'merchant-approve':
+        message = template.merchantRegistration(data, sender);
+        break;
 
-    case 'newsletter-subscription':
-      message = template.newsletterSubscriptionEmail();
-      break;
+		case 'merchant-reject':
+			message = template.merchantReject(data, sender);
+			break;
 
-    case 'contact':
-      message = template.contactEmail();
-      break;
+		case 'newsletter-subscription':
+			message = template.newsletterSubscriptionEmail();
+			break;
 
-    case 'merchant-application':
-      message = template.merchantApplicationEmail();
-      break;
+		case 'contact':
+			message = template.contactEmail();
+			break;
 
-    case 'merchant-deactivate-account':
-      message = template.merchantDeactivateAccount();
-      break;
+		case 'merchant-application':
+			message = template.merchantApplicationEmail();
+			break;
 
-    case 'order-confirmation':
-      message = template.orderConfirmationEmail(data);
-      break;
+		case 'merchant-deactivate-account':
+			message = template.merchantDeactivateAccount();
+			break;
 
-    default:
-      message = '';
-  }
+		case 'order-confirmation':
+			message = template.orderConfirmationEmail(data);
+			break;
 
-  return message;
+		default:
+			message = '';
+	}
+
+	return message;
 };
