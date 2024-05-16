@@ -34,16 +34,16 @@ const ProductSchema = new Schema({
 		type: String,
 		trim: true
 	},
-	quantity: {
-		type: Number,
-	},
-	price: {
-		type: Number
-	},
-	taxable: {
-		type: Boolean,
-		default: false
-	},
+	// quantity: {
+	// 	type: Number,
+	// },
+	// price: {
+	// 	type: Number
+	// },
+	// taxable: {
+	// 	type: Boolean,
+	// 	default: false
+	// },
 	isActive: {
 		type: Boolean,
 		default: true
@@ -69,15 +69,19 @@ const ProductSchema = new Schema({
         // }
 	}]
     ,
+	category: [{
+		type:String,
+		default: "product",
+	}],
 	likes: [{
 		type: Schema.Types.ObjectId,
 		ref: 'User',
 	}],
 	link: String,
-	public:{
-		type:Boolean,
-		default:true,
-	},
+	// public:{
+	// 	type:Boolean,
+	// 	default:true,
+	// },
 	updated: Date,
 	created: {
 		type: Date,
