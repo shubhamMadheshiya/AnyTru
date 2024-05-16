@@ -137,6 +137,8 @@ router.get('/', auth, async (req, res) => {
 	}
 });
 
+
+
 // disable merchant account
 router.put('/:id/active', auth, async (req, res) => {
 	try {
