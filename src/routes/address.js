@@ -14,6 +14,10 @@ router.post('/add', auth, async (req, res) => {
       ...req.body,
       user: user._id
     });
+
+    if (address.isDefault=== true) {
+       await Address.updateMany({user:user._id},{"$set":{"isDefault":false}})
+		}
     const addressDoc = await address.save();
 
     res.status(200).json({
@@ -22,6 +26,7 @@ router.post('/add', auth, async (req, res) => {
       address: addressDoc
     });
   } catch (error) {
+    console.log(error)
     res.status(400).json({
       error: 'Your request could not be processed. Please try again.'
     });
