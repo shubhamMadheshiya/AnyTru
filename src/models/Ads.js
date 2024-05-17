@@ -38,7 +38,7 @@ const adsSchema = new mongoose.Schema({
         type:String,
         default:"category"
     }]
-});
+},{timestamps:true});
 
 const Ads = mongoose.model('Ad', adsSchema);
 
