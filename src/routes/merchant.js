@@ -4,13 +4,14 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 // Bring in Models & Helpers
+const auth = require('../middleware/auth');
+const role = require('../middleware/role');
 const { MERCHANT_STATUS, ROLES } = require('../constants');
 const Merchant = require('../models/merchant');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Brand = require('../models/brand');
-const auth = require('../middleware/auth');
-const role = require('../middleware/role');
+
 const mailgun = require('../services/mailgun');
 
 // add merchant api
