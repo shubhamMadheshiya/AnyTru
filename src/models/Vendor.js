@@ -18,6 +18,18 @@ const vendorSchema = new Schema({
 		ref: 'Merchant',
 		required: true
 	},
+	ads: [
+		{
+			type: Schema.Types.ObjectId,
+			ref: 'Ads'
+		}
+	],
+	rejAds: [
+		{
+			type: Schema.Types.ObjectId,
+			ref: 'Ads'
+		}
+	],
 	rating: {
 		type: Number,
 		min: 1,
