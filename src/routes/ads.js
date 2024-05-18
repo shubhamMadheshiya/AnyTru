@@ -274,4 +274,34 @@ router.post('/:adId/reject', auth, role.check(ROLES.Merchant), async (req, res) 
 	}
 });
 
+
+// Deactivate an Ad
+router.put('/:adId/active', auth, async (req, res) => {
+    try {
+        const adId = req.params.adId;
+        const userId = req.user._id;
+		const isActive = req.body.isActive;
+
+        // Check if the ad exists
+        const ad = await Ads.findById(adId);
+        if (!ad) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        // Check if the user is either the admin or the owner of the ad
+        if (req.user.role === ROLES.Admin || ad.user.toString() === userId.toString()) {
+            // Update the ad to deactivate it
+            ad.isActive = isActive;
+            await ad.save();
+
+            return res.json({ success: true, message: 'Ad deactivated successfully' });
+        } else {
+            return res.status(403).json({ error: 'You are not authorized to deactivate this ad' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
