@@ -30,9 +30,9 @@ router.post('/add', auth, role.check(ROLES.User), async (req, res) => {
 		if (!findUser.phoneNumber) {
 			return res.status(400).json({ error: 'You must update your phone Number in profile section.' });
 		}
-		const findMerchant = await Merchant.findOne({ user: userId });
+		const findMerchant = await Merchant.findOne({ user: userId }); //review
 		if (findMerchant) {
-			return res.status(400).json({ error: 'This User already have Merchant Account' });
+			return res.status(400).json({ error: 'we already have your details as merchant' });
 		}
 
 		//     const findMerchant = await Merchant.findById({}).populate({
@@ -176,11 +176,13 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		};
 
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
-		if (me.status === MERCHANT_STATUS.Approved) {
-			return res.status(400).json({
-				error: 'This Request already has been approved.'
-			});
-		}
+		// if (me.status === MERCHANT_STATUS.Approved) {
+		// 	return res.status(400).json({
+		// 		error: 'This Request already has been approved.'
+		// 	});
+		// }
+
+		
 		if (me.user.role === ROLES.Merchant) {
 			return res.status(400).json({
 				error: 'User already have Merchant Account.'
