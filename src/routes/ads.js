@@ -193,6 +193,49 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 });
 
 // accept ads by vendor
+router.put('/:adId/cancel', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+     
+		const adId = req.params.adId;
+		const vendorId = req.user.vendor;
+
+		console.log(vendorId)
+
+		// Check if the ad exists
+		const ad = await Ads.findById(adId);
+		if (!ad) {
+			return res.status(404).json({ error: 'Ad not found' });
+		}
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		// Check if the vendor is already associated with the ad
+
+		if (!vendor.ads.includes(adId)) {
+			return res.status(400).json({ error: 'Vendor yet not accept the ad' });
+		}
+
+	
+		// Add the vendor to the ad's vendors array
+		ad.vendors.pull(vendorId);
+		vendor.ads.pull(adId);
+
+		// Save the updated ad and vendor documents
+		const adDoc = await ad.save();
+		await vendor.save();
+
+		res.json({ success: true, message: 'Successfull cancel ad' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// accept ads by vendor
 router.post('/:adId/reject', auth, role.check(ROLES.Merchant), async (req, res) => {
 	try {
 		const adId = req.params.adId;
