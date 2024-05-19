@@ -17,22 +17,15 @@ router.post('/add', auth, async (req, res) => {
 		// Check if the vendor ID is included in the vendors array
 		const offer = findAd.vendors.find((vendor) => vendor._id == offerId);
 
-		// const isVendorIncluded = findAd.vendors.some((vendor) => vendor._id == vendorId);
-
 		if (!offer) {
 			return res.status(401).json({ error: 'This offer is not for this ad' });
 		}
 
-		console.log(findAd);
-		console.log(offer);
-
-		// const products = store.caculateItemsSalesTax(items);
-		// console.log(products)
 
 		const totalPrice = findAd.quantity * offer.pricePerProduct;
 
 		const product = {
-      offerId: offer._id,
+			offerId: offer._id,
 			product: offer.product,
 			address: offer.address,
 			vendor: offer.vendor,
@@ -43,106 +36,131 @@ router.post('/add', auth, async (req, res) => {
 			remark: offer.remark
 		};
 
-		const findCart = await Cart.findOne({ user: userId });
+		let cart = await Cart.findOne({ user: userId });
 
-		if (findCart) {
-      if(findCart.products.some((product)=>product.offerId == offer._id)){
-        return res.status(401).json({error:"This is already added to cart"})
-      }
-			findCart.products.push(product);
-			await findCart.save();
-			res.status(200).json({
-			  success: true,
-			  cartDoc: findCart
-			});
-		} else {
-			const cart = new Cart({
-				user: userId
-			});
-
+		if (cart) {
+			if (cart.products.some((product) => product.offerId == offer._id)) {
+				return res.status(401).json({ error: 'This offer is already added to the cart' });
+			}
 			cart.products.push(product);
-			await cart.save();
-			res.status(200).json({
-			  success: true,
-			  cartDoc: cart
+		} else {
+			cart = new Cart({
+				user: userId,
+				products: [product]
 			});
 		}
 
-		// const cartDoc = await cart.save();
+		// Calculate the overAllPrice
+		const overAllPrice = cart.products.reduce((total, product) => total + product.totalPrice, 0);
+		cart.overAllPrice = overAllPrice;
 
-		// decreaseQuantity(products);
-
-		// res.status(200).json({
-		//   success: true,
-		//   cartId: cartDoc.id
-		// });
-	} catch (error) {
-		console.log(error);
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
-
-router.delete('/delete/:cartId', auth, async (req, res) => {
-	try {
-		await Cart.deleteOne({ _id: req.params.cartId });
+		await cart.save();
 
 		res.status(200).json({
-			success: true
+			success: true,
+			cartDoc: cart
 		});
 	} catch (error) {
+		console.error(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
+// Remove item from cart
+router.delete('/remove/:productId', auth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const productId = req.params.productId;
 
-router.post('/add/:cartId', auth, async (req, res) => {
-	try {
-		const product = req.body.product;
-		const query = { _id: req.params.cartId };
+        const cart = await Cart.findOne({ user: userId });
 
-		await Cart.updateOne(query, { $push: { products: product } }).exec();
+        if (!cart) {
+            return res.status(404).json({ error: 'Cart not found' });
+        }
 
-		res.status(200).json({
-			success: true
-		});
-	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
+        const productIndex = cart.products.findIndex(product => product._id == productId);
+
+        if (productIndex === -1) {
+            return res.status(404).json({ error: 'Product not found in cart' });
+        }
+
+        // Get the price of the product being removed and subtract it from overAllPrice
+        const removedProductPrice = cart.products[productIndex].totalPrice;
+        cart.overAllPrice -= removedProductPrice;
+
+        // Remove the product from the cart
+        cart.products.splice(productIndex, 1);
+
+        await cart.save();
+
+        res.json({ success: true, message: 'Product removed from cart successfully', cart });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-router.delete('/delete/:cartId/:productId', auth, async (req, res) => {
-	try {
-		const product = { product: req.params.productId };
-		const query = { _id: req.params.cartId };
 
-		await Cart.updateOne(query, { $pull: { products: product } }).exec();
+// router.delete('/delete/:cartId', auth, async (req, res) => {
+// 	try {
+// 		await Cart.deleteOne({ _id: req.params.cartId });
 
-		res.status(200).json({
-			success: true
-		});
-	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
+// 		res.status(200).json({
+// 			success: true
+// 		});
+// 	} catch (error) {
+// 		res.status(400).json({
+// 			error: 'Your request could not be processed. Please try again.'
+// 		});
+// 	}
+// });
 
-const decreaseQuantity = (products) => {
-	let bulkOptions = products.map((item) => {
-		return {
-			updateOne: {
-				filter: { _id: item.product },
-				update: { $inc: { quantity: -item.quantity } }
-			}
-		};
-	});
+// router.post('/add/:cartId', auth, async (req, res) => {
+// 	try {
+// 		const product = req.body.product;
+// 		const query = { _id: req.params.cartId };
 
-	Product.bulkWrite(bulkOptions);
-};
+// 		await Cart.updateOne(query, { $push: { products: product } }).exec();
+
+// 		res.status(200).json({
+// 			success: true
+// 		});
+// 	} catch (error) {
+// 		res.status(400).json({
+// 			error: 'Your request could not be processed. Please try again.'
+// 		});
+// 	}
+// });
+
+// router.delete('/delete/:cartId/:productId', auth, async (req, res) => {
+// 	try {
+// 		const product = { product: req.params.productId };
+// 		const query = { _id: req.params.cartId };
+
+// 		await Cart.updateOne(query, { $pull: { products: product } }).exec();
+
+// 		res.status(200).json({
+// 			success: true
+// 		});
+// 	} catch (error) {
+// 		res.status(400).json({
+// 			error: 'Your request could not be processed. Please try again.'
+// 		});
+// 	}
+// });
+
+// const decreaseQuantity = (products) => {
+// 	let bulkOptions = products.map((item) => {
+// 		return {
+// 			updateOne: {
+// 				filter: { _id: item.product },
+// 				update: { $inc: { quantity: -item.quantity } }
+// 			}
+// 		};
+// 	});
+
+// 	Product.bulkWrite(bulkOptions);
+// };
 
 module.exports = router;
