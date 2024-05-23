@@ -300,7 +300,8 @@ router.get(
 		session: false,
 		scope: ['profile', 'email'],
 		accessType: 'offline',
-		approvalPrompt: 'force'
+		// approvalPrompt: 'force',
+		prompt: 'select_account'
 	})
 );
 
@@ -311,19 +312,20 @@ router.get(
 		session: false
 	}),
 	(req, res) => {
-		const userId = req.user.userId;
+		// const userId = req.user.userId;
+			const payload = {
+				id: req.user.id
+			};
+
 		// TODO find another way to send the token to frontend
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 		const jwtToken = `Bearer ${token}`;
 
-		if (!userId) {
-			return res.redirect(`${keys.app.clientURL}/auth/userId?token=${jwtToken}`);
-		}
+		// if (!userId) {
+		// 	return res.redirect(`${keys.app.clientURL}/auth/userId?token=${jwtToken}`);
+		// }
 
-		const payload = {
-			id: req.user.id
-		};
-
+	
 		// res.redirect(`${keys.app.clientURL}/dashboard`)
 		res.redirect(`${keys.app.clientURL}/auth/success?token=${jwtToken}`);
 	}
