@@ -2,7 +2,6 @@
 
 The project builds RESTful APIs of AnyTru using Node.js, Express and Mongoose, ...
 
-
 ## Languages & tools
 
 - [Node](https://nodejs.org/en/)
@@ -11,26 +10,22 @@ The project builds RESTful APIs of AnyTru using Node.js, Express and Mongoose, .
 
 - [Mongoose](https://mongoosejs.com/)
 
-
-
 ### Code Formatter
 
 - Add a `.vscode` directory
 - Create a file `settings.json` inside `.vscode`
 - Install Prettier - Code formatter in VSCode
-- Add the following snippet:  
+- Add the following snippet:
 
 ```json
-
-    {
-      "editor.formatOnSave": true,
-      "prettier.singleQuote": true,
-      "prettier.arrowParens": "avoid",
-      "prettier.jsxSingleQuote": true,
-      "prettier.trailingComma": "none",
-      "javascript.preferences.quoteStyle": "single",
-    }
-
+{
+	"editor.formatOnSave": true,
+	"prettier.singleQuote": true,
+	"prettier.arrowParens": "avoid",
+	"prettier.jsxSingleQuote": true,
+	"prettier.trailingComma": "none",
+	"javascript.preferences.quoteStyle": "single"
+}
 ```
 
 ## Manual Installation
@@ -55,7 +50,6 @@ cp .env.example .env
 # open .env and modify the environment variables
 ```
 
-
 ## Table of Contents
 
 - [Commands](#commands)
@@ -72,7 +66,8 @@ npm start
 # or
 npm run dev
 ```
-<!-- 
+
+<!--
 Running in production:
 
 ```bash
@@ -90,7 +85,7 @@ The environment variables can be found and modified in the `.env` file.
 
 
 
-DATABASE_URI = 
+DATABASE_URI =
 PORT = 5000
 
 #MAILCHIMP DETAILS
@@ -108,8 +103,8 @@ MAILGUN_EMAIL_SENDER=
 JWT_SECRET=
 
 #DOMAIN
-CLIENT_DOMAIN = 
-ADMIN_DOMAIN = 
+CLIENT_DOMAIN =
+ADMIN_DOMAIN =
 
 
 #GOOGLE
@@ -124,6 +119,17 @@ FACEBOOK_CLIENT_SECRET=
 FACEBOOK_CALLBACK_URL=
 
 CLIENT_URL=http://localhost:3000
+
+
+#AWS
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
+AWS_BUCKET_NAME=
+
+#RAZORPAY
+RAZORPAY_KEY_ID=
+RAZORPAY_SECRET_ACCESS_KEY=
 ```
 
 ## Project Structure
@@ -154,7 +160,6 @@ List of available routes:
 **Root routes**:\
 `GET /` - Root Page\
 
-
 **Auth routes**:\
 `POST auth/register` - Register User\
 `POST auth/login` - Login\
@@ -164,7 +169,7 @@ List of available routes:
 `POST auth/reset/:token` - Reset password\
 `POST auth/reset` - Reset password from old password\
 
-<!-- 
+<!--
 **User routes**:\
 `POST api/v1/users` - Create a user\
 `GET api/v1/users` - Get all users\
