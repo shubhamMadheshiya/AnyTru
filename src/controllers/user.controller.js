@@ -71,6 +71,20 @@ exports.createUser = async (req, res) => {
 	}
 };
 
+// Controller function to get user 
+exports.getUser = async (req, res) => {
+	try {
+        // console.log('console file is ',req.user)
+		const user = await User.findOne({ _id: req.user._id });
+		if (!user) {
+			return res.status(404).json({ message: 'User not found' });
+		}
+		res.status(200).json(user);
+	} catch (error) {
+		res.status(500).json({ message: error.message });
+	}
+};
+
 // Controller function to get user by userId
 exports.getUserById = async (req, res) => {
 	try {
@@ -87,10 +101,14 @@ exports.getUserById = async (req, res) => {
 
 // Controller function to update user by userId
 exports.updateUser = async (req, res) => {
-
+let hash
     	// Hash the password
-		const salt = await bcrypt.genSalt(10);
-		const hash = await bcrypt.hash(req.body.password, salt);
+		if (req.body.password) {
+			const salt = await bcrypt.genSalt(10);
+			 hash = await bcrypt.hash(req.body.password, salt);
+			
+		}
+		
    
     const data = {
 			firstName: req.body.firstName,
