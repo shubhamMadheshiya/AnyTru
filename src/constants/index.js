@@ -10,13 +10,21 @@ exports.MERCHANT_STATUS = {
   Waiting_Approval: 'Waiting Approval'
 };
 
-exports.CART_ITEM_STATUS = {
+exports.ORDER_ITEM_STATUS = {
   Processing: 'Processing',
   Shipped: 'Shipped',
   Delivered: 'Delivered',
   Cancelled: 'Cancelled',
   Not_processed: 'Not processed'
 };
+exports.ORDER_PAYMENT_STATUS = {
+	Created:'created',
+Authorized: 'authorized',
+Captured:'captured',
+Failed: 'failed',
+Refunded:'refunded',
+Pending: 'pending',
+}
 
 exports.REVIEW_STATUS = {
   Rejected: 'Rejected',
