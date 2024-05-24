@@ -42,7 +42,7 @@ router.get('/search', auth, async (req, res) => {
 });
 
 // fetch users api
-router.get('/', auth, async (req, res) => {
+router.get('/list', auth, async (req, res) => {
 	try {
 		const { page = 1, limit = 10 } = req.query;
 
@@ -107,11 +107,12 @@ router.get('/vendor', auth, role.check(ROLES.Merchant), async (req, res) => {
 	}
 });
 
+
 // POST request to create a new user
 router.post('/', auth, authorizeRole(ROLES.Admin), userController.createUser);
 
 // // GET request to get user's info
-// router.get('/',auth, userController.createUser);
+router.get('/',auth, userController.getUser);
 
 // GET request to get user by userId
 router.get('/:userId', auth, userController.getUserById);
