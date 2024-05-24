@@ -52,6 +52,7 @@ app.use('/contact', require('./src/routes/contact'));
 app.use('/merchant', require('./src/routes/merchant'));
 app.use('/vendor', require('./src/routes/vendor'));
 app.use('/ads', require('./src/routes/ads'));
+app.use('/order', require('./src/routes/order'));
 
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
