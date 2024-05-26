@@ -1,6 +1,48 @@
 const mongoose = require('mongoose');
 const { ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS } = require('../constants');
+const AddressSchema = new mongoose.Schema(
+	{
+		addressType: {
+			type: String,
+			enum: ['Home', 'Office', 'Hotel', 'Other'],
+			default: 'Home',
+			required: true
+		},
+		address: String,
+		city: String,
+		state: String,
+		country: {
+			type: String,
+			default: 'India'
+		},
+		pinCode: String
+	},
+	{ _id: false }
+);
 
+const ProductSchema = new mongoose.Schema(
+	{
+		_id: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: 'Product'
+		},
+
+		name: {
+			type: String,
+			trim: true
+		},
+
+		imageUrl: {
+			type: String
+		},
+
+		description: {
+			type: String,
+			trim: true
+		}
+	},
+	{ _id: false }
+);
 const OrderSchema = new mongoose.Schema(
 	{
 		orderId: {
@@ -10,10 +52,7 @@ const OrderSchema = new mongoose.Schema(
 		user: { type: String, required: true },
 		products: [
 			{
-				product: {
-					type: mongoose.Schema.Types.ObjectId,
-					ref: 'Product'
-				},
+				product: ProductSchema,
 				quantity: {
 					type: Number,
 					default: 1
@@ -36,10 +75,7 @@ const OrderSchema = new mongoose.Schema(
 				dispatchDay: {
 					type: Number
 				},
-				address: {
-					type: mongoose.Schema.Types.ObjectId,
-					ref: 'Address'
-				},
+				address: AddressSchema,
 				status: {
 					type: String,
 					default: ORDER_ITEM_STATUS.Not_processed,
@@ -54,7 +90,7 @@ const OrderSchema = new mongoose.Schema(
 			}
 		],
 		amount: { type: Number, required: true },
-		address: { type: Object, required: true },
+		// address: { type: Object, required: true },
 		status: {
 			type: String,
 			default: ORDER_PAYMENT_STATUS.Pending,
@@ -66,6 +102,12 @@ const OrderSchema = new mongoose.Schema(
 				ORDER_PAYMENT_STATUS.Refunded,
 				ORDER_PAYMENT_STATUS.Pending
 			]
+		},
+		paymentId: {
+			type: String
+		},
+		paymentSignature: {
+			type: String
 		},
 		receipt: {
 			type: String
