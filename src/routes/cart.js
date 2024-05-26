@@ -13,6 +13,7 @@ router.post('/add', auth, async (req, res) => {
 		const userId = req.user._id;
 		const { adId, offerId } = req.body;
 		const findAd = await Ads.findOne({ _id: adId });
+		console.log("findAd",findAd)
 
 		// Check if the vendor ID is included in the vendors array
 		const offer = findAd.vendors.find((vendor) => vendor._id == offerId);
@@ -26,8 +27,8 @@ router.post('/add', auth, async (req, res) => {
 
 		const product = {
 			offerId: offer._id,
-			product: offer.product,
-			address: offer.address,
+			product: findAd.product,
+			address: findAd.address,
 			vendor: offer.vendor,
 			quantity: findAd.quantity,
 			pricePerProduct: offer.pricePerProduct,
