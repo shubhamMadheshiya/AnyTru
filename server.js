@@ -6,14 +6,14 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./src/utils/swagger-output.json');
-const config = require('./src/config/config');
 const connectDB = require('./src/config/db');
 const corsOptions = require('./src/config/corsOptions');
 const passportConfig = require('./src/config/passport'); 
+const keys = require('./src/config/keys');
 
 const app = express();
 
-const PORT = config.port || 6000;
+const PORT = keys.port;
 
 // Connect to MongoDB
 connectDB();
