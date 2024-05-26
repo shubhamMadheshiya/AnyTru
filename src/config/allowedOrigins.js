@@ -1,5 +1,5 @@
-const config = require('./config')
+const keys = require('./keys');
 
-const allowedOrigins = [config.clientDomain, config.adminDomain];
+const allowedOrigins = [keys.app.adminURL , keys.app.clientURL];
 
 module.exports = allowedOrigins;

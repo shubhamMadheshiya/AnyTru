@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-const config = require('./config')
+const keys = require('./keys');
 
 const connectDB = async () => {
 	try {
-		await mongoose.connect(config.databaseUrl);
+		await mongoose.connect(keys.database.url);
 
 		console.log('Connected to MongoDB successfully');
 	} catch (err) {
