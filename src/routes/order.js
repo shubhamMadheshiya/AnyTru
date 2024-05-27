@@ -437,20 +437,33 @@ router.get('/:orderId', auth, async (req, res) => {
 });
 
 // Cancel single order API
-router.delete('/cancel/:singleOrderId', auth, role.check(ROLES.Admin), async (req, res) => {
-	const singleOrderId = req.params.singleOrderId;
+router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) => {
+	const { orderId, singleOrderId } = req.body;
 
 	try {
-		const findOrder = await Order.findOne({ 'products._id': singleOrderId });
+		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
 
 		if (!findOrder) {
 			return res.status(404).json({ error: 'No single order found' });
 		}
 
-		const singleOrder = findOrder.products.id(singleOrderId);
+		const singleOrder = findOrder.products.find((singleOrder) => singleOrder._id == singleOrderId);
 
 		if (!singleOrder) {
 			return res.status(404).json({ error: 'No single order found' });
+		}
+
+		if (singleOrder.status == ORDER_ITEM_STATUS.Processing) {
+			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Processing}` });
+		}
+		if (singleOrder.status == ORDER_ITEM_STATUS.Shipped) {
+			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Shipped}` });
+		}
+		if (singleOrder.status == ORDER_ITEM_STATUS.Delivered) {
+			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Delivered}` });
+		}
+		if (singleOrder.status == ORDER_ITEM_STATUS.Cancelled) {
+			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Cancelled}` });
 		}
 
 		singleOrder.status = ORDER_ITEM_STATUS.Cancelled;
@@ -470,54 +483,59 @@ router.delete('/cancel/:singleOrderId', auth, role.check(ROLES.Admin), async (re
 	}
 });
 
-router.put('/status/item/:itemId', auth, async (req, res) => {
+// Update status of a single order item
+router.put('/status/item', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
-		const itemId = req.params.itemId;
-		const orderId = req.body.orderId;
-		const cartId = req.body.cartId;
-		const status = req.body.status || CART_ITEM_STATUS.Cancelled;
+		const { orderId, singleOrderId, status } = req.body;
+		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
 
-		const foundCart = await Cart.findOne({ 'products._id': itemId });
-		const foundCartProduct = foundCart.products.find((p) => p._id == itemId);
+		if (!findOrder) {
+			return res.status(404).json({ error: 'No order found' });
+		}
 
-		await Cart.updateOne(
-			{ 'products._id': itemId },
-			{
-				'products.$.status': status
-			}
-		);
+		const singleOrder = findOrder.products.id(singleOrderId);
 
-		if (status === CART_ITEM_STATUS.Cancelled) {
-			await Product.updateOne({ _id: foundCartProduct.product }, { $inc: { quantity: foundCartProduct.quantity } });
+		if (!singleOrder) {
+			return res.status(404).json({ error: 'No single order item found' });
+		}
 
-			const cart = await Cart.findOne({ _id: cartId });
-			const items = cart.products.filter((item) => item.status === CART_ITEM_STATUS.Cancelled);
+		if (!Object.values(ORDER_ITEM_STATUS).includes(status)) {
+			return res.status(400).json({ error: `Invalid status: ${status}. Please select a valid status.` });
+		}
 
-			// All items are cancelled => Cancel order
-			if (cart.products.length === items.length) {
-				await Order.deleteOne({ _id: orderId });
-				await Cart.deleteOne({ _id: cartId });
+		// Validate the new status transition
+		const currentStatus = singleOrder.status;
+		if (currentStatus === ORDER_ITEM_STATUS.Cancelled) {
+			return res.status(403).json({ error: 'Cannot update status of a cancelled order.' });
+		}
 
-				return res.status(200).json({
-					success: true,
-					orderCancelled: true,
-					message: `${req.user.role === ROLES.Admin ? 'Order' : 'Your order'} has been cancelled successfully`
-				});
-			}
+		const validStatusTransitions = {
+			[ORDER_ITEM_STATUS.Not_processed]: [ORDER_ITEM_STATUS.Processing, ORDER_ITEM_STATUS.Cancelled],
+			[ORDER_ITEM_STATUS.Processing]: [ORDER_ITEM_STATUS.Shipped, ORDER_ITEM_STATUS.Cancelled],
+			[ORDER_ITEM_STATUS.Shipped]: [ORDER_ITEM_STATUS.Delivered, ORDER_ITEM_STATUS.Cancelled],
+			[ORDER_ITEM_STATUS.Delivered]: [],
+			[ORDER_ITEM_STATUS.Cancelled]: []
+		};
 
-			return res.status(200).json({
-				success: true,
-				message: 'Item has been cancelled successfully!'
+		if (!validStatusTransitions[currentStatus].includes(status)) {
+			return res.status(403).json({
+				error: `Invalid status transition from ${currentStatus} to ${status}.`
 			});
 		}
 
+		singleOrder.status = status;
+
+		await findOrder.save();
+
 		res.status(200).json({
 			success: true,
-			message: 'Item status has been updated successfully!'
+			message: 'Item status has been updated successfully!',
+			order: findOrder
 		});
 	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
+		console.error('Error updating order item status:', error);
+		res.status(500).json({
+			error: 'An error occurred while processing your request. Please try again.'
 		});
 	}
 });
