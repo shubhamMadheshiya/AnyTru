@@ -170,72 +170,29 @@ router.post('/refund/:singleOrderId', auth, role.check(ROLES.Admin), async (req,
 	}
 });
 
-// search orders api
-router.get('/search', auth, async (req, res) => {
+// Search orders API
+router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
 		const { search } = req.query;
 
-		if (!Mongoose.Types.ObjectId.isValid(search)) {
-			return res.status(200).json({
-				orders: []
-			});
+		if (!search) {
+			return res.status(400).json({ error: 'Search query is required.' });
 		}
 
-		let ordersDoc = null;
+		const order = await Order.findOne(
+			{ orderId: search.toString() },
+			{ refundOrder: 0, _id: 0, receipt: 0, paymentSignature: 0, paymentId: 0 }
+		).populate({ path: 'user', select: 'name email avatar _id' });
 
-		if (req.user.role === ROLES.Admin) {
-			ordersDoc = await Order.find({
-				_id: Mongoose.Types.ObjectId(search)
-			}).populate({
-				path: 'cart',
-				populate: {
-					path: 'products.product',
-					populate: {
-						path: 'brand'
-					}
-				}
-			});
-		} else {
-			const user = req.user._id;
-			ordersDoc = await Order.find({
-				_id: Mongoose.Types.ObjectId(search),
-				user
-			}).populate({
-				path: 'cart',
-				populate: {
-					path: 'products.product',
-					populate: {
-						path: 'brand'
-					}
-				}
-			});
+		if (!order) {
+			return res.status(404).json({ error: `No order found with orderId ${search}` });
 		}
 
-		ordersDoc = ordersDoc.filter((order) => order.cart);
-
-		if (ordersDoc.length > 0) {
-			const newOrders = ordersDoc.map((o) => {
-				return {
-					_id: o._id,
-					total: parseFloat(Number(o.total.toFixed(2))),
-					created: o.created,
-					products: o.cart?.products
-				};
-			});
-
-			let orders = newOrders.map((o) => store.caculateTaxAmount(o));
-			orders.sort((a, b) => b.created - a.created);
-			res.status(200).json({
-				orders
-			});
-		} else {
-			res.status(200).json({
-				orders: []
-			});
-		}
+		res.status(200).json(order);
 	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
+		console.error('Error fetching order:', error);
+		res.status(500).json({
+			error: 'Your request could not be processed. Please try again later.'
 		});
 	}
 });
@@ -436,7 +393,7 @@ router.get('/:orderId', auth, async (req, res) => {
 	}
 });
 
-// Cancel single order API
+// Cancel single order item API
 router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) => {
 	const { orderId, singleOrderId } = req.body;
 
@@ -484,7 +441,7 @@ router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) =>
 });
 
 // Update status of a single order item
-router.put('/status/item', auth, role.check(ROLES.Admin), async (req, res) => {
+router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
 	try {
 		const { orderId, singleOrderId, status } = req.body;
 		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
@@ -539,55 +496,5 @@ router.put('/status/item', auth, role.check(ROLES.Admin), async (req, res) => {
 		});
 	}
 });
-
-// fetch my orders api
-router.get('/me', auth, async (req, res) => {
-	try {
-		const { page = 1, limit = 10 } = req.query;
-		const user = req.user._id;
-		const query = { user };
-
-		const ordersDoc = await Order.find(query)
-			.sort('-created')
-			.populate({
-				path: 'cart',
-				populate: {
-					path: 'products.product',
-					populate: {
-						path: 'brand'
-					}
-				}
-			})
-			.limit(limit * 1)
-			.skip((page - 1) * limit)
-			.exec();
-
-		const count = await Order.countDocuments(query);
-		const orders = store.formatOrders(ordersDoc);
-
-		res.status(200).json({
-			orders,
-			totalPages: Math.ceil(count / limit),
-			currentPage: Number(page),
-			count
-		});
-	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
-const increaseQuantity = (products) => {
-	let bulkOptions = products.map((item) => {
-		return {
-			updateOne: {
-				filter: { _id: item.product },
-				update: { $inc: { quantity: item.quantity } }
-			}
-		};
-	});
-
-	Product.bulkWrite(bulkOptions);
-};
 
 module.exports = router;
