@@ -9,6 +9,15 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Merchant = require('../models/merchant');
 const { checkUserId } = require('../middleware/checkUserId');
+const { s3Upload } = require('../utils/storage');
+const multer = require('multer');
+
+
+const storage = multer.memoryStorage();
+
+const upload = multer({ storage });
+
+
 
 // search users api
 router.get('/search', auth, async (req, res) => {
@@ -114,20 +123,60 @@ router.post('/', auth, authorizeRole(ROLES.Admin), userController.createUser);
 // // GET request to get user's info
 router.get('/',auth, userController.getUser);
 
-// GET request to get user by userId
-router.get('/:userId', auth, userController.getUserById);
+router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
+	let hash;
+	try {
+		const { firstName, lastName, phoneNumber, bio, userId } = req.body;
+		const avatar = req.file;
 
-// PUT request to update user by userId
-router.patch('/:userId', auth, authorizeRole(ROLES.User), userController.updateUser);
+		const data = {
+			firstName,
+			lastName,
+			phoneNumber,
+			bio,
+			userId,
+			avatar: {} // Initialize avatar as an empty object
+		};
+
+		// Hash the password if it is provided
+		if (req.body.password) {
+			const salt = await bcrypt.genSalt(10);
+			hash = await bcrypt.hash(req.body.password, salt);
+			data.password = hash;
+		}
+
+		// Check if the userId is unique
+		const existingUser = await User.findOne({ userId });
+		if (existingUser && existingUser._id.toString() !== req.params.userId) {
+			return res.status(400).json({ message: 'userId is already in use by another user' });
+		}
+
+		// Handle avatar upload if present
+		if (avatar) {
+			const { imageUrl, imageKey } = await s3Upload(avatar);
+			data.avatar.imageUrl = imageUrl;
+			data.avatar.imageKey = imageKey;
+		}
+
+		// Update the user
+		const updatedUser = await User.findOneAndUpdate({ _id: req.params.userId }, data, { new: true });
+		if (!updatedUser) {
+			return res.status(404).json({ message: 'User not found' });
+		}
+		res.status(200).json(updatedUser);
+	} catch (error) {
+		res.status(500).json({ message: error.message });
+	}
+});
 
 // DELETE request to delete user by userId
-router.delete('/:userId', auth, authorizeRole(ROLES.User), userController.deleteUser);
+router.delete('/:userId', auth,  userController.deleteUser);
 
 // POST request to follow a user
-router.post('/:userId/follow', auth, authorizeRole(ROLES.User), userController.followUser);
+router.post('/:userId/follow', auth,  userController.followUser);
 
 // POST request to unfollow a user
-router.post('/:userId/unfollow', auth, authorizeRole(ROLES.User), userController.unfollowUser);
+router.post('/:userId/unfollow', auth,  userController.unfollowUser);
 
 // POST request to place an order
 // router.post('/order', userController.placeOrder);

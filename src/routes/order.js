@@ -182,7 +182,9 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 		const order = await Order.findOne(
 			{ orderId: search.toString() },
 			{ refundOrder: 0, _id: 0, receipt: 0, paymentSignature: 0, paymentId: 0 }
-		).populate({ path: 'user', select: 'name email avatar _id' });
+		)
+			.sort('-createdAt')
+			.populate({ path: 'user', select: 'name email avatar _id' });
 
 		if (!order) {
 			return res.status(404).json({ error: `No order found with orderId ${search}` });
