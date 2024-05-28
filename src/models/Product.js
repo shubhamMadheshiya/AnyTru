@@ -34,25 +34,12 @@ const ProductSchema = new Schema({
 		type: String,
 		trim: true
 	},
-	// quantity: {
-	// 	type: Number,
-	// },
-	// price: {
-	// 	type: Number
-	// },
-	// taxable: {
-	// 	type: Boolean,
-	// 	default: false
-	// },
+
 	isActive: {
 		type: Boolean,
 		default: true
 	},
-	// brand: {
-	// 	type: Schema.Types.ObjectId,
-	// 	ref: 'Brand',
-	// 	default: null
-	// },
+	
 	user: {
 		type: Schema.Types.ObjectId,
 		ref: 'User',
@@ -60,13 +47,6 @@ const ProductSchema = new Schema({
 	},
 	   tags:[{ 
 		type:String,
-        // Change tags to be an array of strings
-        // validate: {
-        //     validator: function (v) {
-        //         return v.length >= 5;
-        //     },
-        //     message: 'At least 5 tags are required'
-        // }
 	}]
     ,
 	category: [{
@@ -78,10 +58,6 @@ const ProductSchema = new Schema({
 		ref: 'User',
 	}],
 	link: String,
-	// public:{
-	// 	type:Boolean,
-	// 	default:true,
-	// },
 	updated: Date,
 	created: {
 		type: Date,
