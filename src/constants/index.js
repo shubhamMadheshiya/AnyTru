@@ -3,6 +3,17 @@ exports.ROLES = {
   User: 'USER',
   Merchant: 'MERCHANT'
 };
+exports.CATEGORIES = {
+	Furniture: 'Furniture',
+	Clothing: 'Clothing',
+	PrintsGraphics: 'Prints & Graphics ',
+	HomeDecor: 'Home Decor ',
+	Jewellery: 'Jewellery',
+	EventSetups: 'Event Setups',
+	Accessories: 'Accessories',
+	Others: 'Others'
+};
+
 
 exports.MERCHANT_STATUS = {
   Rejected: 'Rejected',
