@@ -6,7 +6,9 @@ const crypto = require('crypto');
 const passport = require('passport');
 const User = require('../models/User');
 const { authorizeRole } = require('../middleware/authorizeRole');
-const { ROLES } = require('../constants/index');
+const { ROLES , ADMIN_EMAILS} = require('../constants/index');
+
+
 
 const auth = require('../middleware/auth');
 
@@ -127,14 +129,22 @@ router.post('/register', async (req, res) => {
 		const salt = await bcrypt.genSalt(10);
 		const hash = await bcrypt.hash(password, salt);
 
+		// Determine user role based on email
+		let role = ROLES.User;
+		if (ADMIN_EMAILS.includes(email)) {
+			role = ROLES.Admin;
+		}
+
 		// Create a new user instance
 		const user = new User({
 			email,
 			userId,
 			firstName,
 			lastName,
+			role,
 			password: hash // Assign the hashed password
 		});
+		
 
 		const registeredUser = await user.save();
 
