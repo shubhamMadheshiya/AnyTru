@@ -150,13 +150,11 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 		const sku = req.body.sku;
 		const name = req.body.name;
 		const description = req.body.description;
-		// const isActive = req.body.isActive;
 		const user = req.user._id;
 		const image = req.file;
 		const tags = req.body.tags;
 		const category = req.body.category;
-		console.log(req.body.tags);
-
+		
 		if (!sku) {
 			return res.status(400).json({ error: 'You must enter sku.' });
 		}
