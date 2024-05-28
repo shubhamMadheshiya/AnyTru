@@ -44,7 +44,8 @@ const userSchema = new mongoose.Schema({
 		type: String
 	},
 	avatar: {
-		type: String
+		imageUrl:{type:String} ,
+		imageKey:{type:String},
 	},
 	role: {
 		type: String,
@@ -101,13 +102,13 @@ const userSchema = new mongoose.Schema({
 
 
 
-// Generate a unique userId based on firstName and lastName
-userSchema.pre('save', function (next) {
-  if (this.isNew || this.isModified('firstName') || this.isModified('lastName')) {
-    this.userId = `${this.firstName.toLowerCase()}_${this.lastName.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
-  }
-  next();
-});
+// // Generate a unique userId based on firstName and lastName
+// userSchema.pre('save', function (next) {
+//   if (this.isNew || this.isModified('firstName') || this.isModified('lastName')) {
+//     this.userId = `${this.firstName.toLowerCase()}_${this.lastName.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
+//   }
+//   next();
+// });
 
 const User = mongoose.model('User', userSchema);
 
