@@ -14,6 +14,7 @@ exports.CATEGORIES = {
 	Others: 'Others'
 };
 
+exports.ADMIN_EMAILS = ['Anytruofficial@gmail.com'];
 
 exports.MERCHANT_STATUS = {
   Rejected: 'Rejected',
