@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { CATEGORIES } = require('../constants/index');
 
 const adsSchema = new mongoose.Schema(
 	{
@@ -49,7 +50,17 @@ const adsSchema = new mongoose.Schema(
 		category: [
 			{
 				type: String,
-				default: 'category'
+				default: CATEGORIES.Others,
+				enum: [
+					CATEGORIES.Others,
+					CATEGORIES.Accessories,
+					CATEGORIES.Clothing,
+					CATEGORIES.EventSetups,
+					CATEGORIES.Furniture,
+					CATEGORIES.HomeDecor,
+					CATEGORIES.Jewellery,
+					CATEGORIES.PrintsGraphics
+				]
 			}
 		]
 	},
