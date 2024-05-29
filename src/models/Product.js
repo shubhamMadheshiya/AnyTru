@@ -1,7 +1,8 @@
-const Mongoose = require('mongoose');
-const { CATEGORIES} = require('../constants/index');
+const mongoose = require('mongoose');
+const { CATEGORIES } = require('../constants/index');
 const slug = require('mongoose-slug-updater');
-const { Schema } = Mongoose;
+const { Schema } = mongoose;
+
 
 const options = {
 	separator: '-',
@@ -9,7 +10,7 @@ const options = {
 	truncate: 120
 };
 
-Mongoose.plugin(slug, options);
+mongoose.plugin(slug, options);
 
 // Product Schema
 const ProductSchema = new Schema({
@@ -80,5 +81,5 @@ ProductSchema.post('save', function(error, doc, next) {
         next(error);
     }
 });
-
-module.exports = Mongoose.model('Product', ProductSchema);
+const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
+module.exports = Product;
