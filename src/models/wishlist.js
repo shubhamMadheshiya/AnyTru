@@ -3,11 +3,11 @@ const { Schema } = Mongoose;
 
 // Wishlist Schema
 const WishlistSchema = new Schema({
-  product: {
+  product: [{
     type: Schema.Types.ObjectId,
     ref: 'Product',
     default: null
-  },
+  }],
   user: {
     type: Schema.Types.ObjectId,
     ref: 'User',
