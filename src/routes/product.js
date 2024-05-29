@@ -5,6 +5,7 @@ const Mongoose = require('mongoose');
 
 // Bring in Models & Utils
 const Product = require('../models/product');
+const User = require('../models/User')
 const Brand = require('..//models/brand');
 const Category = require('../models/category');
 const auth = require('../middleware/auth');
@@ -12,7 +13,7 @@ const role = require('../middleware/role');
 const checkAuth = require('../utils/auth');
 const { s3Upload } = require('../utils/storage');
 const { getStoreProductsQuery, getStoreProductsWishListQuery } = require('../utils/queries');
-const { ROLES } = require('../constants');
+const { ROLES, CATEGORIES } = require('../constants');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -74,143 +75,48 @@ router.get('/list/search/:name', async (req, res) => {
 	}
 });
 
-// fetch store products by advanced filters api
-router.get('/list', async (req, res) => {
-	try {
-		let { sortOrder, rating, max, min, category, brand, page = 1, limit = 10 } = req.query;
-		sortOrder = JSON.parse(sortOrder);
-
-		const categoryFilter = category ? { category } : {};
-		const basicQuery = getStoreProductsQuery(min, max, rating);
-
-		const userDoc = await checkAuth(req);
-		const categoryDoc = await Category.findOne({
-			slug: categoryFilter.category,
-			isActive: true
-		});
-
-		if (categoryDoc) {
-			basicQuery.push({
-				$match: {
-					isActive: true,
-					_id: {
-						$in: Array.from(categoryDoc.products)
-					}
-				}
-			});
-		}
-
-		const brandDoc = await Brand.findOne({
-			slug: brand,
-			isActive: true
-		});
-
-		if (brandDoc) {
-			basicQuery.push({
-				$match: {
-					'brand._id': { $eq: brandDoc._id }
-				}
-			});
-		}
-
-		let products = null;
-		const productsCount = await Product.aggregate(basicQuery);
-		const count = productsCount.length;
-		const size = count > limit ? page - 1 : 0;
-		const currentPage = count > limit ? Number(page) : 1;
-
-		// paginate query
-		const paginateQuery = [{ $sort: sortOrder }, { $skip: size * limit }, { $limit: limit * 1 }];
-
-		if (userDoc) {
-			const wishListQuery = getStoreProductsWishListQuery(userDoc.id).concat(basicQuery);
-			products = await Product.aggregate(wishListQuery.concat(paginateQuery));
-		} else {
-			products = await Product.aggregate(basicQuery.concat(paginateQuery));
-		}
-
-		res.status(200).json({
-			products,
-			totalPages: Math.ceil(count / limit),
-			currentPage,
-			count
-		});
-	} catch (error) {
-		console.log('error', error);
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
 
 
-// add product api
-router.post('/add', auth, upload.single('image'), async (req, res) => {
-	try {
-		const sku = req.body.sku;
-		const name = req.body.name;
-		const description = req.body.description;
-		const user = req.user._id;
-		const image = req.file;
-		const tags = req.body.tags;
-		const category = req.body.category;
-		
-		if (!sku) {
-			return res.status(400).json({ error: 'You must enter sku.' });
-		}
 
-		if (!description || !name) {
-			return res.status(400).json({ error: 'You must enter description & name.' });
-		}
-
-		const foundProduct = await Product.findOne({ sku });
-
-		if (foundProduct) {
-			return res.status(400).json({ error: 'This sku is already in use.' });
-		}
-
-		const { imageUrl, imageKey } = await s3Upload(image);
-
-		const product = new Product({
-			sku,
-			name,
-			description,
-			category,
-			// isActive,
-			user,
-			imageUrl,
-			imageKey,
-			tags
-		});
-
-		const savedProduct = await product.save();
-
-		res.status(200).json({
-			success: true,
-			message: `Product has been added successfully!`,
-			product: savedProduct
-		});
-	} catch (error) {
-		console.log(error);
-		return res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
 
 // fetch products api of particular user by admin
-router.get('/all', auth, role.check(ROLES.Admin), async (req, res) => {
-	const { page = 1, limit = 10 } = req.query;
+router.get('/list', auth, async (req, res) => {
+	const { page = 1, limit = 10, likes, category, isActive = false } = req.query;
+	const userId = req.user._id;
+	const isAdmin = req.user.isAdmin;
 
 	try {
-		const products = await Product.find({})
-			.populate('user')
-			.sort('-created')
-			.limit(limit * 1)
-			.skip((page - 1) * limit)
-			.exec();
+		// Create a filter object
+		let filter = {};
 
-		const count = await Product.countDocuments();
+		// Filter by category if provided
+		if (category) {
+			filter.category = { $in: category.split(',').map((cat) => cat.trim()) };
+		}
+
+		// Filter by isActive
+		if (isActive !== undefined) {
+			filter.isActive = isActive === 'true';
+		} else if (!isAdmin) {
+			filter.isActive = true; // Non-admin users can only see active products
+		}
+
+		// Find products with the given filters
+		let productsQuery = Product.find(filter)
+			.populate('user')
+			.sort('-createdAt')
+			.limit(limit * 1)
+			.skip((page - 1) * limit);
+
+		// Sort by likes if requested
+		if (likes) {
+			productsQuery = productsQuery.sort({ likes: -1 });
+		}
+
+		const products = await productsQuery.exec();
+
+		// Count documents with the given filters
+		const count = await Product.countDocuments(filter);
 
 		res.status(200).json({
 			products,
@@ -226,20 +132,19 @@ router.get('/all', auth, role.check(ROLES.Admin), async (req, res) => {
 	}
 });
 
-//complete
 
 // add product api
 router.post('/add', auth, upload.single('image'), async (req, res) => {
 	try {
-		const sku = req.body.sku;
-		const name = req.body.name;
-		const description = req.body.description;
-		// const isActive = req.body.isActive;
-		const user = req.user._id;
+		const { sku, name, description, tags, link, category } = req.body;
+		const userId = req.user._id;
 		const image = req.file;
-		const tags = req.body.tags;
-		const category = req.body.category;
-		console.log(req.body.tags);
+
+		const findUser = await User.findById(userId);
+
+		if (!findUser) {
+			return res.status(404).json({ error: 'User not found' });
+		}
 
 		if (!sku) {
 			return res.status(400).json({ error: 'You must enter sku.' });
@@ -247,6 +152,14 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 
 		if (!description || !name) {
 			return res.status(400).json({ error: 'You must enter description & name.' });
+		}
+
+		// Validate categories
+		const categoriesArray = Array.isArray(category) ? category : category.split(',').map(cat => cat.trim());
+		for (const cat of categoriesArray) {
+			if (!Object.values(CATEGORIES).includes(cat)) {
+				return res.status(404).json({ error: `No such category available: ${cat}` });
+			}
 		}
 
 		const foundProduct = await Product.findOne({ sku });
@@ -257,18 +170,19 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 
 		const { imageUrl, imageKey } = await s3Upload(image);
 
-		const product = new Product({
+		const data = {
 			sku,
 			name,
 			description,
-			category,
-			// isActive,
-			user,
+			category: categoriesArray,
+			user: userId,
 			imageUrl,
 			imageKey,
-			tags
-		});
+			tags: Array.isArray(tags) ? tags : tags.split(',').map((tag) => tag.trim()),
+			link
+		};
 
+		const product = new Product(data);
 		const savedProduct = await product.save();
 
 		res.status(200).json({
@@ -283,6 +197,7 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 		});
 	}
 });
+
 
 // fetch products api of particular user
 router.get('/', auth, async (req, res) => {

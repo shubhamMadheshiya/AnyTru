@@ -38,7 +38,7 @@ const ProductSchema = new Schema({
 
 	isActive: {
 		type: Boolean,
-		default: true
+		default: false
 	},
 
 	user: {
@@ -65,12 +65,12 @@ const ProductSchema = new Schema({
 		}
 	],
 	link: String,
-	updated: Date,
-	created: {
-		type: Date,
-		default: Date.now
-	}
-});
+	// updated: Date,
+	// created: {
+	// 	type: Date,
+	// 	default: Date.now
+	// }
+},{timestamps:true});
 
 // Error handling for slug generation
 ProductSchema.post('save', function(error, doc, next) {
