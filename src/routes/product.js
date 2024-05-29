@@ -4,7 +4,8 @@ const multer = require('multer');
 const Mongoose = require('mongoose');
 
 // Bring in Models & Utils
-const Product = require('../models/product');
+// const Product = require('../models/Product');
+const Product = require('../models/Product')
 const User = require('../models/User')
 const Brand = require('..//models/brand');
 const Category = require('../models/category');
@@ -26,10 +27,12 @@ router.get('/item/:slug', async (req, res) => {
 
 		const productDoc = await Product.findOne({ slug, isActive: true }).populate({
 			path: 'user',
-			select: 'name isActive slug'
+			// select: 'name isActive slug'
 		});
+		console.log(productDoc)
 
 		const hasNoUser = productDoc?.user === null || productDoc?.user?.isActive === false;
+		console.log(hasNoUser)
 
 		if (!productDoc || hasNoUser) {
 			return res.status(404).json({
@@ -81,9 +84,10 @@ router.get('/list/search/:name', async (req, res) => {
 
 // fetch products api of particular user by admin
 router.get('/list', auth, async (req, res) => {
-	const { page = 1, limit = 10, likes, category, isActive = false } = req.query;
+	const { page = 1, limit = 10, likes, category, isActive= true } = req.query;
 	const userId = req.user._id;
-	const isAdmin = req.user.isAdmin;
+	const isAdmin = req.user.role === ROLES.Admin;
+	
 
 	try {
 		// Create a filter object
@@ -93,14 +97,21 @@ router.get('/list', auth, async (req, res) => {
 		if (category) {
 			filter.category = { $in: category.split(',').map((cat) => cat.trim()) };
 		}
-
 		// Filter by isActive
-		if (isActive !== undefined) {
-			filter.isActive = isActive === 'true';
-		} else if (!isAdmin) {
-			filter.isActive = true; // Non-admin users can only see active products
+		if (isAdmin && isActive == 'false') {
+			filter.isActive = false;
+		}else{
+			filter.isActive = true;
+
 		}
 
+		// if (isActive !== undefined) {
+		// 	filter.isActive = isActive === 'true';
+		// } else if (!isAdmin) {
+		// 	filter.isActive = true; // Non-admin users can only see active products
+		// }
+
+		console.log(filter)
 		// Find products with the given filters
 		let productsQuery = Product.find(filter)
 			.populate('user')
@@ -208,7 +219,7 @@ router.get('/', auth, async (req, res) => {
 	try {
 		const products = await Product.find({ user: userId })
 			.populate('user')
-			.sort('-created')
+			.sort('-createdAt')
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
 			.exec();
@@ -253,7 +264,7 @@ router.get('/:id', auth, async (req, res) => {
 //update product by Id (user and Admin)
 
 router.put('/:id', auth, async (req, res) => {
-	console.log(req.body);
+	
 	try {
 		const productId = req.params.id;
 		const update = req.body;
@@ -332,5 +343,48 @@ router.delete('/delete/:id', auth, async (req, res) => {
 		});
 	}
 });
+
+router.put('/like/:productId', auth, async (req, res) => {
+	try {
+		const { productId } = req.params;
+		const userId = req.user._id;
+
+		const product = await Product.findById(productId);
+
+		if (!product) {
+			return res.status(404).json({
+				success: false,
+				message: 'Product not found!'
+			});
+		}
+
+		const likeIndex = product.likes.indexOf(userId);
+
+		if (likeIndex === -1) {
+			// User has not liked the product, so like it
+			product.likes.push(userId);
+			message = 'Product liked successfully!';
+		} else {
+			// User has already liked the product, so dislike it
+			product.likes.pull(userId);
+			message = 'Product disliked successfully!';
+		}
+
+		await product.save();
+
+		res.status(200).json({
+			success: true,
+			message,
+			likes: product.likes.length
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({
+			success: false,
+			error: 'An internal server error occurred. Please try again later.'
+		});
+	}
+});
+
 
 module.exports = router;
