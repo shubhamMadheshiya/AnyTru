@@ -123,6 +123,7 @@ router.post('/', auth, authorizeRole(ROLES.Admin), userController.createUser);
 // // GET request to get user's info
 router.get('/',auth, userController.getUser);
 
+// UPDATE USER
 router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 	let hash;
 	try {
