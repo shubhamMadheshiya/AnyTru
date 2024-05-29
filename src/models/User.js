@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
+const wishlist = require('./wishlist');
 
 const userSchema = new mongoose.Schema({
 	phoneNumber: {
@@ -96,6 +97,10 @@ const userSchema = new mongoose.Schema({
 	isActive: {
 		type: Boolean,
 		default: true
+	},
+	wishlist:{
+		type:mongoose.Schema.Types.ObjectId,
+		ref:'wishlist'
 	}
 });
 
