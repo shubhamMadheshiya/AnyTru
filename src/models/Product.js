@@ -1,4 +1,5 @@
 const Mongoose = require('mongoose');
+const { CATEGORIES} = require('../constants/index');
 const slug = require('mongoose-slug-updater');
 const { Schema } = Mongoose;
 
@@ -39,24 +40,30 @@ const ProductSchema = new Schema({
 		type: Boolean,
 		default: true
 	},
-	
+
 	user: {
 		type: Schema.Types.ObjectId,
 		ref: 'User',
 		default: null
 	},
-	   tags:[{ 
-		type:String,
-	}]
-    ,
-	category: [{
-		type:String,
-		default: "product",
-	}],
-	likes: [{
-		type: Schema.Types.ObjectId,
-		ref: 'User',
-	}],
+	tags: [
+		{
+			type: String
+		}
+	],
+	category: [
+		{
+			type: String,
+			default: CATEGORIES.Others,
+			enum: [CATEGORIES.Others, CATEGORIES.Accessories, CATEGORIES.Clothing, CATEGORIES.EventSetups, CATEGORIES.Furniture, CATEGORIES.HomeDecor , CATEGORIES.Jewellery, CATEGORIES.PrintsGraphics]
+		}
+	],
+	likes: [
+		{
+			type: Schema.Types.ObjectId,
+			ref: 'User'
+		}
+	],
 	link: String,
 	updated: Date,
 	created: {

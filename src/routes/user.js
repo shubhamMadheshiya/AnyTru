@@ -134,8 +134,7 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 			lastName,
 			phoneNumber,
 			bio,
-			userId,
-			avatar: {} // Initialize avatar as an empty object
+			userId
 		};
 
 		// Hash the password if it is provided
@@ -154,8 +153,7 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 		// Handle avatar upload if present
 		if (avatar) {
 			const { imageUrl, imageKey } = await s3Upload(avatar);
-			data.avatar.imageUrl = imageUrl;
-			data.avatar.imageKey = imageKey;
+			data.avatar = imageUrl;
 		}
 
 		// Update the user
