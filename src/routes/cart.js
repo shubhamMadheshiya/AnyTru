@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Bring in Models & Utils
 const Cart = require('../models/cart');
-const Product = require('../models/product');
+const Product = require('../models/Product')
 const auth = require('../middleware/auth');
 const store = require('../utils/store');
 const Ads = require('../models/Ads');
@@ -13,7 +13,7 @@ router.post('/add', auth, async (req, res) => {
 		const userId = req.user._id;
 		const { adId, offerId } = req.body;
 		const findAd = await Ads.findOne({ _id: adId });
-		console.log("findAd",findAd)
+		console.log('findAd', findAd);
 
 		// Check if the vendor ID is included in the vendors array
 		const offer = findAd.vendors.find((vendor) => vendor._id == offerId);
@@ -21,7 +21,6 @@ router.post('/add', auth, async (req, res) => {
 		if (!offer) {
 			return res.status(401).json({ error: 'This offer is not for this ad' });
 		}
-
 
 		const totalPrice = findAd.quantity * offer.pricePerProduct;
 
@@ -70,38 +69,37 @@ router.post('/add', auth, async (req, res) => {
 });
 // Remove item from cart
 router.delete('/remove/:productId', auth, async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const productId = req.params.productId;
+	try {
+		const userId = req.user._id;
+		const productId = req.params.productId;
 
-        const cart = await Cart.findOne({ user: userId });
+		const cart = await Cart.findOne({ user: userId });
 
-        if (!cart) {
-            return res.status(404).json({ error: 'Cart not found' });
-        }
+		if (!cart) {
+			return res.status(404).json({ error: 'Cart not found' });
+		}
 
-        const productIndex = cart.products.findIndex(product => product._id == productId);
+		const productIndex = cart.products.findIndex((product) => product._id == productId);
 
-        if (productIndex === -1) {
-            return res.status(404).json({ error: 'Product not found in cart' });
-        }
+		if (productIndex === -1) {
+			return res.status(404).json({ error: 'Product not found in cart' });
+		}
 
-        // Get the price of the product being removed and subtract it from overAllPrice
-        const removedProductPrice = cart.products[productIndex].totalPrice;
-        cart.overAllPrice -= removedProductPrice;
+		// Get the price of the product being removed and subtract it from overAllPrice
+		const removedProductPrice = cart.products[productIndex].totalPrice;
+		cart.overAllPrice -= removedProductPrice;
 
-        // Remove the product from the cart
-        cart.products.splice(productIndex, 1);
+		// Remove the product from the cart
+		cart.products.splice(productIndex, 1);
 
-        await cart.save();
+		await cart.save();
 
-        res.json({ success: true, message: 'Product removed from cart successfully', cart });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+		res.json({ success: true, message: 'Product removed from cart successfully', cart });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
 });
-
 
 // router.delete('/delete/:cartId', auth, async (req, res) => {
 // 	try {
