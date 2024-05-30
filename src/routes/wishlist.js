@@ -10,7 +10,7 @@ const User = require('../models/User');
 router.post('/add/:productId', auth, async (req, res) => {
 	try {
 		const { productId } = req.params;
-		const userId = req.user._id
+		const userId = req.user._id;
 
 		const findProduct = await Product.findOne({ _id: productId, isActive: true });
 		const findUser = await User.findOne({ _id: userId, isActive: true });
