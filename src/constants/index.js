@@ -6,7 +6,7 @@ exports.ROLES = {
 exports.CATEGORIES = {
 	Furniture: 'Furniture',
 	Clothing: 'Clothing',
-	PrintsGraphics: 'Prints & Graphics ',
+	PrintsGraphics: 'Prints & Graphics',
 	HomeDecor: 'Home Decor ',
 	Jewellery: 'Jewellery',
 	EventSetups: 'Event Setups',

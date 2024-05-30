@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 const Product = require('../models/Product');
 const User = require('../models/User');
 
-router.post('add/:productId', auth, async (req, res) => {
+router.post('/add/:productId', auth, async (req, res) => {
 	try {
 		const { productId } = req.params;
 		const userId = req.user._id;
