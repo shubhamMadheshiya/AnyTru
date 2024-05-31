@@ -85,7 +85,7 @@ router.get('/list/search/:name', async (req, res) => {
 // fetch products api of particular user by admin
 router.get('/list', async (req, res) => {
 	const { page = 1, limit = 10, likes, category, isActive= true } = req.query;
-	const userId = req.user._id;
+	// const userId = req.user._id;
 	const isAdmin = req.user.role === ROLES.Admin;
 	
 
@@ -111,7 +111,7 @@ router.get('/list', async (req, res) => {
 		// 	filter.isActive = true; // Non-admin users can only see active products
 		// }
 
-		console.log(filter)
+		// console.log(filter)
 		// Find products with the given filters
 		let productsQuery = Product.find(filter)
 			.populate('user')
