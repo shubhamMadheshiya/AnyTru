@@ -5,8 +5,8 @@ const Mongoose = require('mongoose');
 
 // Bring in Models & Utils
 // const Product = require('../models/Product');
-const Product = require('../models/Product')
-const User = require('../models/User')
+const Product = require('../models/Product');
+const User = require('../models/User');
 const Brand = require('..//models/brand');
 const Category = require('../models/category');
 const auth = require('../middleware/auth');
@@ -26,13 +26,13 @@ router.get('/item/:slug', async (req, res) => {
 		const slug = req.params.slug;
 
 		const productDoc = await Product.findOne({ slug, isActive: true }).populate({
-			path: 'user',
+			path: 'user'
 			// select: 'name isActive slug'
 		});
-		console.log(productDoc)
+		console.log(productDoc);
 
 		const hasNoUser = productDoc?.user === null || productDoc?.user?.isActive === false;
-		console.log(hasNoUser)
+		console.log(hasNoUser);
 
 		if (!productDoc || hasNoUser) {
 			return res.status(404).json({
@@ -53,16 +53,29 @@ router.get('/item/:slug', async (req, res) => {
 
 // complete
 // fetch product name search api
-router.get('/list/search/:name', async (req, res) => {
+router.get('/list/search/:name',  async (req, res) => {
+	let isAdmin;
+	const userDoc = await checkAuth(req);
+
+	if (userDoc?.role == ROLES.Admin) {
+		isAdmin = true;
+	} else {
+		isAdmin = false;
+	}
+
 	try {
 		const name = req.params.name;
+		let filter = { name: { $regex: new RegExp(name), $options: 'is' } };
 
-		const productDoc = await Product.find(
-			{ name: { $regex: new RegExp(name), $options: 'is' }, isActive: true }
-			// { name: 1, slug: 1, imageUrl: 1, price: 1, _id: 0 }
-		).populate('user');
+		// If the user is not an admin, add isActive filter
+		if (!isAdmin) {
+			filter.isActive = true;
+		}
 
-		if (productDoc.length < 0) {
+		const productDoc = await Product.find(filter).populate('user');
+
+		if (productDoc.length === 0) {
+			// Fixed condition to check for no products found
 			return res.status(404).json({
 				message: 'No product found.'
 			});
@@ -72,23 +85,26 @@ router.get('/list/search/:name', async (req, res) => {
 			products: productDoc
 		});
 	} catch (error) {
+		console.error(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
 
-
-
-
-
 // fetch products api of particular user by admin
-router.get('/list',auth, async (req, res) => {
-	const { page = 1, limit = 10, likes, category, isActive= true } = req.query;
+router.get('/list', async (req, res) => {
+	const { page = 1, limit = 10, likes, category, isActive = true } = req.query;
 	// const userId = req.user._id;
-	const isAdmin = req.user.role === ROLES.Admin;
-	
+	let isAdmin;
+	const userDoc = await checkAuth(req);
+	console.log(userDoc);
 
+	if (userDoc?.role == ROLES.Admin) {
+		isAdmin = true;
+	} else {
+		isAdmin = false;
+	}
 	try {
 		// Create a filter object
 		let filter = {};
@@ -100,9 +116,8 @@ router.get('/list',auth, async (req, res) => {
 		// Filter by isActive
 		if (isAdmin && isActive == 'false') {
 			filter.isActive = false;
-		}else{
+		} else {
 			filter.isActive = true;
-
 		}
 
 		// if (isActive !== undefined) {
@@ -111,7 +126,7 @@ router.get('/list',auth, async (req, res) => {
 		// 	filter.isActive = true; // Non-admin users can only see active products
 		// }
 
-		// console.log(filter)
+		console.log(filter);
 		// Find products with the given filters
 		let productsQuery = Product.find(filter)
 			.populate('user')
@@ -143,7 +158,6 @@ router.get('/list',auth, async (req, res) => {
 	}
 });
 
-
 // add product api
 router.post('/add', auth, upload.single('image'), async (req, res) => {
 	try {
@@ -166,7 +180,7 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 		}
 
 		// Validate categories
-		const categoriesArray = Array.isArray(category) ? category : category.split(',').map(cat => cat.trim());
+		const categoriesArray = Array.isArray(category) ? category : category.split(',').map((cat) => cat.trim());
 		for (const cat of categoriesArray) {
 			if (!Object.values(CATEGORIES).includes(cat)) {
 				return res.status(404).json({ error: `No such category available: ${cat}` });
@@ -208,7 +222,6 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 		});
 	}
 });
-
 
 // fetch products api of particular user
 router.get('/', auth, async (req, res) => {
@@ -264,7 +277,6 @@ router.get('/:id', async (req, res) => {
 //update product by Id (user and Admin)
 
 router.put('/:id', auth, async (req, res) => {
-	
 	try {
 		const productId = req.params.id;
 		const update = req.body;
@@ -325,7 +337,6 @@ router.put('/:id/active', auth, async (req, res) => {
 	}
 });
 
-
 //completed
 //delete productby Id (Admin & User)
 router.delete('/delete/:id', auth, async (req, res) => {
@@ -385,6 +396,5 @@ router.put('/like/:productId', auth, async (req, res) => {
 		});
 	}
 });
-
 
 module.exports = router;
