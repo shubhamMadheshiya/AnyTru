@@ -85,12 +85,6 @@ const userSchema = new mongoose.Schema({
 		ref: 'Vendor',
 		default: null
 	},
-	rating: {
-		type: Number,
-		min: 1,
-		max: 5,
-		default: 1
-	},
 	vandorName: {
 		type: String
 	},
