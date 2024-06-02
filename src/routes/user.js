@@ -129,7 +129,7 @@ router.get('/:userId', auth ,userController.getUserById);
 
 // UPDATE USER
 router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
-	let hash;
+	
 	try {
 		const { firstName, lastName, phoneNumber, bio, userId } = req.body;
 		const avatar = req.file;
@@ -141,17 +141,13 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 			bio,
 			userId
 		};
+		console.log(data)
 
-		// Hash the password if it is provided
-		if (req.body.password) {
-			const salt = await bcrypt.genSalt(10);
-			hash = await bcrypt.hash(req.body.password, salt);
-			data.password = hash;
-		}
+	
 
 		// Check if the userId is unique
 		const existingUser = await User.findOne({ userId });
-		if (existingUser && existingUser._id.toString() !== req.params.userId) {
+		if (existingUser && userId !== undefined) {
 			return res.status(400).json({ message: 'userId is already in use by another user' });
 		}
 
