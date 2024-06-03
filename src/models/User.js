@@ -4,34 +4,42 @@ const wishlist = require('./wishlist');
 
 const userSchema = new mongoose.Schema({
 	phoneNumber: {
-		type: String
+		type: String,
+		trim: true
 	},
 	firstName: {
 		type: String,
-		required: true
+		required: true,
+		trim: true
 	},
 	lastName: {
-		type: String
+		type: String,
+		trim: true
 	},
 	email: {
 		type: String,
 		required: () => {
 			return this.provider !== 'email' ? false : true;
 		},
-		unique: true
+		unique: true,
+		trim: true
 	},
 	userId: {
 		type: String,
-		unique: true
+		unique: true,
+		trim: true
 	},
 	phoneNumber: {
-		type: String
+		type: String,
+		trim: true
 	},
 	password: {
-		type: String
+		type: String,
+		trim: true
 	},
 	bio: {
-		type: String
+		type: String,
+		trim: true
 	},
 	provider: {
 		type: String,
@@ -47,6 +55,10 @@ const userSchema = new mongoose.Schema({
 	avatar: {
 		type: String
 	},
+	avatarKey: {
+		type: String
+	},
+
 	role: {
 		type: String,
 		required: true,
@@ -92,9 +104,9 @@ const userSchema = new mongoose.Schema({
 		type: Boolean,
 		default: true
 	},
-	wishlist:{
-		type:mongoose.Schema.Types.ObjectId,
-		ref:'wishlist'
+	wishlist: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: 'wishlist'
 	}
 });
 

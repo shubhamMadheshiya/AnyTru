@@ -9,15 +9,29 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Merchant = require('../models/merchant');
 const { checkUserId } = require('../middleware/checkUserId');
-const { s3Upload } = require('../utils/storage');
+const { s3Upload, s3Delete } = require('../utils/storage');
 const multer = require('multer');
-
 
 const storage = multer.memoryStorage();
 
-const upload = multer({ storage });
+// File filter function
+const fileFilter = (req, file, cb) => {
+	// Accept only specific file types (e.g., images and PDFs)
+	if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+		cb(null, true);
+	} else {
+		cb(new Error('Invalid file type. Only JPEG and PNG files are allowed.'), false);
+	}
+};
 
-
+// Multer configuration
+const upload = multer({
+	storage: storage,
+	limits: {
+		fileSize: 5 * 1024 * 1024 // Limit file size to 5MB
+	},
+	fileFilter: fileFilter
+});
 
 // search users api
 router.get('/search', auth, async (req, res) => {
@@ -116,16 +130,14 @@ router.get('/vendor', auth, role.check(ROLES.Merchant), async (req, res) => {
 	}
 });
 
-
 // POST request to create a new user
 router.post('/', auth, authorizeRole(ROLES.Admin), userController.createUser);
 
 // // GET request to get user's info
-router.get('/',auth, userController.getUser);
-
+router.get('/', auth, userController.getUser);
 
 //getUser by Id
-router.get('/:userId', auth ,userController.getUserById);
+router.get('/:userId', auth, userController.getUserById);
 
 // UPDATE USER
 router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
@@ -141,41 +153,46 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 			bio,
 			userId
 		};
-		
-
-	
 
 		// Check if the userId is unique
 		const existingUser = await User.findOne({ userId });
 		if (existingUser && userId !== undefined) {
 			return res.status(400).json({ message: 'userId is already in use by another user' });
 		}
-
-		// Handle avatar upload if present
-		if (avatar) {
-			const { imageUrl, imageKey } = await s3Upload(avatar);
-			data.avatar = imageUrl;
-		}
+		
 
 		// Update the user
 		const updatedUser = await User.findOneAndUpdate({ _id: req.params.userId }, data, { new: true });
 		if (!updatedUser) {
 			return res.status(404).json({ message: 'User not found' });
 		}
+
+		// Handle avatar upload if present
+		if (avatar) {
+			if (updatedUser.avatarKey) {
+				const deleteImg = await s3Delete([updatedUser.avatarKey]);
+				console.log(deleteImg);
+			}
+			const { imageUrl, imageKey } = await s3Upload(avatar);
+			updatedUser.avatar = imageUrl;
+			updatedUser.avatarKey = imageKey;
+			updatedUser.save();
+		}
 		res.status(200).json(updatedUser);
 	} catch (error) {
+		console.log(error);
 		res.status(500).json({ message: error.message });
 	}
 });
 
 // DELETE request to delete user by userId
-router.delete('/:userId', auth,  userController.deleteUser);
+router.delete('/:userId', auth, userController.deleteUser);
 
 // POST request to follow a user
-router.post('/:userId/follow', auth,  userController.followUser);
+router.post('/:userId/follow', auth, userController.followUser);
 
 // POST request to unfollow a user
-router.post('/:userId/unfollow', auth,  userController.unfollowUser);
+router.post('/:userId/unfollow', auth, userController.unfollowUser);
 
 // POST request to place an order
 // router.post('/order', userController.placeOrder);

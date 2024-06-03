@@ -76,7 +76,7 @@ exports.createUser = async (req, res) => {
 // Controller function to get user
 exports.getUser = async (req, res) => {
 	try {
-		// console.log('console file is ',req.user)
+		
 		const user = await User.findOne({ _id: req.user._id });
 		if (!user) {
 			return res.status(404).json({ message: 'User not found' });
@@ -90,7 +90,7 @@ exports.getUser = async (req, res) => {
 // Controller function to get user by userId
 exports.getUserById = async (req, res) => {
 	try {
-		// console.log('console file is ',req.user)
+	
 		const user = await User.findOne({ _id: req.params.userId });
 		if (!user) {
 			return res.status(404).json({ message: 'User not found' });

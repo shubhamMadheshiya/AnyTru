@@ -49,7 +49,7 @@ const googleAuth = () => {
 						return done(null, user);
 					}
 
-					console.log(profile)
+				
 
 					const name = profile.displayName.split(' ');
 

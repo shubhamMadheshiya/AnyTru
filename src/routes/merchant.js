@@ -6,14 +6,15 @@ const multer = require('multer');
 // Bring in Models & Helpers
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
-const { MERCHANT_STATUS, ROLES } = require('../constants');
+const { MERCHANT_STATUS, ROLES, ENDPOINT } = require('../constants');
 const Merchant = require('../models/merchant');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Brand = require('../models/brand');
-const { s3Upload } = require('../utils/storage');
+const { s3Upload ,s3Delete } = require('../utils/storage');
 const mailgun = require('../services/mailgun');
 const storage = multer.memoryStorage();
+const NotificationService = require('../services/notificationService');
 
 
 // File filter function
@@ -30,7 +31,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 1 * 1024 * 1024 // Limit file size to 1MB
+    fileSize: 5 * 1024 * 1024 // Limit file size to 5MB
   },
   fileFilter: fileFilter
 });
@@ -42,7 +43,6 @@ const upload = multer({
 router.post(
 	'/add',
 	auth,
-	role.check(ROLES.User),
 	upload.fields([
 		{ name: 'pan', maxCount: 1 },
 		{ name: 'gstin', maxCount: 1 }
@@ -53,20 +53,20 @@ router.post(
 		try {
 			const findUser = await User.findById(userId);
 
-			if (!findUser.email || !findUser.userId ) {
-				return res.status(400).json({ error: 'You must update your userId in profile section.' });
+			if (!findUser.email || !findUser.userId) {
+				return res.status(400).json({ error: 'You must update your userId in the profile section.' });
 			}
 			if (!findUser.phoneNumber) {
-				return res.status(400).json({ error: 'You must update your phone number in profile section.' });
+				return res.status(400).json({ error: 'You must update your phone number in the profile section.' });
 			}
 
 			const findMerchant = await Merchant.findOne({
 				user: userId,
-				'status': { $in: [MERCHANT_STATUS.Approved, MERCHANT_STATUS.Waiting_Approval] }
+				status: { $in: [MERCHANT_STATUS.Approved, MERCHANT_STATUS.Waiting_Approval] }
 			});
 
 			if (findMerchant) {
-				return res.status(400).json({ error: 'We already have your details as merchant.' });
+				return res.status(400).json({ error: 'We already have your details as a merchant.' });
 			}
 
 			const {
@@ -83,11 +83,11 @@ router.post(
 				zipCode,
 				country,
 				websiteUrl,
-				adharNumber,
+				adharNumber
 			} = req.body;
 
 			if (
-				!adharNumber,
+				!adharNumber ||
 				!brandId ||
 				!bankName ||
 				!accNumber ||
@@ -114,8 +114,13 @@ router.post(
 			const panFile = req.files['pan'] ? req.files['pan'][0] : null;
 			const gstinFile = req.files['gstin'] ? req.files['gstin'][0] : null;
 
-			const panFileUrl = panFile ? (await s3Upload(panFile)).imageUrl : null;
-			const gstinFileUrl = gstinFile ? (await s3Upload(gstinFile)).imageUrl : null;
+			const panUpload = panFile ? await s3Upload(panFile) : null;
+			const gstinUpload = gstinFile ? await s3Upload(gstinFile) : null;
+
+			const panFileUrl = panUpload ? panUpload.imageUrl : null;
+			const gstinFileUrl = gstinUpload ? gstinUpload.imageUrl : null;
+			const panFileKey = panUpload ? panUpload.imageKey : null;
+			const gstinFileKey = gstinUpload ? gstinUpload.imageKey : null;
 
 			const merchant = new Merchant({
 				brandId,
@@ -123,13 +128,15 @@ router.post(
 				accNumber,
 				ifsc,
 				upi,
-				pan: panFileUrl,
-				gstin: gstinFileUrl,
+				panFileUrl,
+				gstinFileUrl,
+				panFileKey,
+				gstinFileKey,
 				business,
 				user: userId,
 				websiteUrl,
 				adharNumber,
-				user:findUser,
+				user: findUser,
 				merchantAddress: {
 					billingAddress,
 					officeAddress,
@@ -149,7 +156,7 @@ router.post(
 
 			res.status(200).json({
 				success: true,
-				message: `We received your request! we will reach you on your phone number ${findUser.phoneNumber}!`,
+				message: `We received your request! We will reach you on your phone number ${findUser.phoneNumber}!`
 			});
 		} catch (error) {
 			console.log(error);
@@ -170,13 +177,15 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 
 		const merchants = await Merchant.find({
 			// $or: [{ brandId: { $regex: regex } }, { status: { $regex: regex } }]
-		}).populate({
-			path: 'user',
-			match: {
-				$or: [{ email: { $regex: regex } }, { firstName: { $regex: regex } }, { userId: { $regex: regex } }]
-			},
-			select: '-password -provider -followers -orders -cart -created -address -following'
-		});
+		})
+			.populate({
+				path: 'user',
+				match: {
+					$or: [{ email: { $regex: regex } }, { firstName: { $regex: regex } }, { userId: { $regex: regex } }]
+				},
+				select: '-password -provider -followers -orders -cart -created -address -following'
+			})
+			.sort('-created');
 
 		console.log('Merchants found:', merchants);
 
@@ -253,7 +262,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		const query = { _id: merchantId };
 		const update = {
 			status: MERCHANT_STATUS.Approved,
-			isActive: true
+		
 		};
 
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
@@ -263,7 +272,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		// 	});
 		// }
 
-		if (me.user.role === ROLES.Merchant) {
+		if (me?.user?.role === ROLES.Merchant) {
 			return res.status(400).json({
 				error: 'User already have Merchant Account.'
 			});
@@ -273,8 +282,20 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		}).populate({ path: 'user', select: 'email firstName _id role' });
 
 		// await mailgun.sendEmail(merchantDoc.user.email, 'merchant-approve', null, merchantDoc.user.firstName);
-		console.log(merchantDoc.user);
-		await createMerchantUser(merchantDoc);
+		
+		const userDoc = await createMerchantUser(merchantDoc);
+
+		const notificationData = {
+			userId: userDoc._id,
+			title: merchantDoc.brandId,
+			avatar: userDoc.avatar,
+			message: `Congratulation your profile approve as Vendor`,
+			url: `${ENDPOINT.UserProfile}${userDoc._id}`,
+			// imgUrl: productDoc.imageUrl
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+		
+		
 
 		res.status(200).json({
 			success: true
@@ -302,17 +323,27 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 				error: 'This Request already has been rejected.'
 			});
 		}
-		if (me.user.role === ROLES.Merchant) {
+		if (me?.user?.role === ROLES.Merchant) {
 			return res.status(400).json({
 				error: 'User already have Merchant Account.'
 			});
 		}
 		const merchantDoc = await Merchant.findOneAndUpdate(query, update, {
 			new: true
-		}).populate({ path: 'user', select: 'email firstName' });
+		}).populate({ path: 'user', select: '_id email firstName' });
 
 		await mailgun.sendEmail(merchantDoc.user.email, 'merchant-reject', null, merchantDoc.user.firstName);
 
+		const notificationData = {
+			userId: merchantDoc.user._id,
+			title: merchantDoc.brandId,
+			avatar: merchantDoc.user.avatar,
+			message: `Sorry, your profile has not been approved as a Vendor.`,
+			url: `${ENDPOINT.UserProfile}${merchantDoc.user._id}`
+			// imgUrl: productDoc.imageUrl
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+		console.log(notification);
 		// await Merchant.findByIdAndDelete(merchantId);
 
 		res.status(200).json({
@@ -381,28 +412,54 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
 		const merchantId = req.params.id;
-		// await deactivateBrand(merchantId);
 
-		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
-		if (me.status === MERCHANT_STATUS.Approved) {
-			return res.status(400).json({
-				error: 'This Request already has been approved you can not delete.'
+		const merchant = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
+		if (!merchant) {
+			return res.status(404).json({
+				error: 'Merchant not found.'
 			});
 		}
-		if (me.user.role === ROLES.Merchant) {
+
+		if (merchant.status === MERCHANT_STATUS.Approved) {
 			return res.status(400).json({
-				error: 'User already have Merchant Account you can not delete.'
+				error: 'This request has already been approved, you cannot delete it.'
 			});
 		}
-		const merchant = await Merchant.deleteOne({ _id: merchantId });
+		if (merchant.user.role === ROLES.Merchant) {
+			return res.status(400).json({
+				error: 'User already has a Merchant Account, you cannot delete it.'
+			});
+		}
+
+		if (merchant.status !== MERCHANT_STATUS.Rejected) {
+			return res.status(400).json({
+				error: 'Please reject the request first.'
+			});
+		}
+
+		// Delete PAN and GSTIN files from S3
+		const panKey = merchant.panFileKey; // Assuming you store the S3 key of the PAN file in the merchant document
+		const gstinKey = merchant.gstinFileKey; // Assuming you store the S3 key of the GSTIN file in the merchant document
+
+
+		
+		await s3Delete([panKey, gstinKey]);
+
+		// Delete merchant from the database
+		await Merchant.deleteOne({ _id: merchantId });
+
+		const user = await User.findById(merchant.user._id);
+		if (user) {
+			user.merchantReq = null;
+			await user.save();
+		}
 
 		res.status(200).json({
 			success: true,
-			message: `Merchant has been deleted successfully!`,
-			merchant
+			message: 'Merchant has been deleted successfully!'
 		});
 	} catch (error) {
-		console.log(error);
+		console.error(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
@@ -451,19 +508,19 @@ const createMerchantUser = async (merchantDoc) => {
 	console.log(merchantDoc);
 	try {
 		const newVendor = new Vendor({
-			name: merchantDoc.brandId,
-			user: merchantDoc.user._id,
+			vendorId: merchantDoc.brandId,
+			user: merchantDoc.user,
 			description: merchantDoc.business,
-			merchant: merchantDoc._id,
-			isActive: true
+			merchantDoc: merchantDoc,
+			websiteUrl: merchantDoc.websiteUrl,
+			merchantAddress: merchantDoc.merchantAddress,
 		});
 
 		const vendorDoc = await newVendor.save();
 
 		const query = { _id: merchantDoc.user._id };
 		const update = {
-			vendor: vendorDoc._id,
-			merchant: merchantDoc._id,
+			vendor: vendorDoc,
 			role: ROLES.Merchant
 		};
 

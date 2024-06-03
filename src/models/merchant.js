@@ -26,12 +26,22 @@ const MerchantSchema = new Schema({
 		required: true,
 		trim: true
 	},
-	pan: {
+	panFileUrl: {
 		type: String,
 		required: true,
 		trim: true
 	},
-	gstin: {
+	gstinFileUrl: {
+		type: String,
+		required: true,
+		trim: true
+	},
+	panFileKey: {
+		type: String,
+		required: true,
+		trim: true
+	},
+	gstinFileKey: {
 		type: String,
 		required: true,
 		trim: true
@@ -66,13 +76,13 @@ const MerchantSchema = new Schema({
 	// 	type: Boolean,
 	// 	default: false
 	// },
-	vendor: {
-		type: Schema.Types.ObjectId,
-		ref: 'Vendor',
-		default: null
-	},
-	websiteUrl:{
-		type:String,
+	// vendor: {
+	// 	type: Schema.Types.ObjectId,
+	// 	ref: 'Vendor',
+	// 	default: null
+	// },
+	websiteUrl: {
+		type: String,
 		trim: true
 	},
 	user: {
@@ -83,10 +93,10 @@ const MerchantSchema = new Schema({
 	merchantAddress: {
 		billingAddress: { type: String, required: true, trim: true },
 		officeAddress: { type: String, required: true, trim: true },
-		city: { type: String, required: true , trim: true },
-		state: { type: String, required: true , trim: true },
-		zipCode: { type: String, required: true , trim: true },
-		country: { type: String, required: true , trim: true }
+		city: { type: String, required: true, trim: true },
+		state: { type: String, required: true, trim: true },
+		zipCode: { type: String, required: true, trim: true },
+		country: { type: String, required: true, trim: true }
 	},
 	status: {
 		type: String,

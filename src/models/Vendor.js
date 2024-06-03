@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const vendorSchema = new Schema({
-	name: {
+	vendorId: {
 		type: String,
 		unique: true,
 		trim: true
@@ -13,10 +13,22 @@ const vendorSchema = new Schema({
 		ref: 'User',
 		required: true
 	},
-	merchant: {
+	merchantDoc: {
 		type: Schema.Types.ObjectId,
 		ref: 'Merchant',
 		required: true
+	},
+	websiteUrl: {
+		type: String,
+		trim: true
+	},
+	merchantAddress: {
+		billingAddress: { type: String, required: true, trim: true },
+		officeAddress: { type: String, required: true, trim: true },
+		city: { type: String, required: true, trim: true },
+		state: { type: String, required: true, trim: true },
+		zipCode: { type: String, required: true, trim: true },
+		country: { type: String, required: true, trim: true }
 	},
 	ads: [
 		{
