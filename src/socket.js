@@ -1,25 +1,65 @@
 // src/socket.js
-const socketio = require('socket.io');
+const Message = require('./models/Message');
+const NotificationService = require('./services/notificationService');
+const User = require('./models/User');
 
-const configureSocket = (server) => {
-	const io = socketio(server);
-
+const socketConfig = (io) => {
 	io.on('connection', (socket) => {
-		console.log('A user connected');
+		console.log('a user connected');
 
-		// Handle incoming chat messages
-		socket.on('chat message', (msg) => {
-			// Broadcast the message to all connected clients
-			io.emit('chat message', msg);
+		socket.on('disconnect', () => {
+			console.log('user disconnected');
 		});
 
-		// Handle user disconnect
-		socket.on('disconnect', () => {
-			console.log('A user disconnected');
+		socket.on('joinRoom', ({ userId, room }) => {
+			socket.join(room);
+			console.log(`${userId} joined room ${room}`);
+		});
+
+		socket.on('chatMessage', async ({ sender, receiver, content }) => {
+			const newMessage = new Message({
+				sender,
+				receiver,
+				content
+			});
+
+			await newMessage.save();
+
+			const notification = await NotificationService.createNotification(
+				receiver,
+				`New message from ${sender}`,
+				`/chat/${sender}`
+			);
+
+			io.to(receiver).emit('message', {
+				sender,
+				content,
+				timestamp: newMessage.timestamp
+			});
+
+			io.to(receiver).emit('notification', notification);
+		});
+
+		socket.on('getMessages', async ({ userId, contactId }) => {
+			const messages = await Message.find({
+				$or: [
+					{ sender: userId, receiver: contactId },
+					{ sender: contactId, receiver: userId }
+				]
+			}).sort({ timestamp: 1 });
+
+			socket.emit('messages', messages);
+		});
+
+		socket.on('getNotifications', async ({ userId }) => {
+			const notifications = await NotificationService.getNotifications(userId);
+			socket.emit('notifications', notifications);
+		});
+
+		socket.on('markNotificationAsRead', async ({ notificationId }) => {
+			await NotificationService.markAsRead(notificationId);
 		});
 	});
-
-	return io;
 };
 
-module.exports = configureSocket;
+module.exports = socketConfig;

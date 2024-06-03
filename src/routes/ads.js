@@ -4,10 +4,11 @@ const Ads = require('../models/Ads');
 const Address = require('../models/Adress');
 const User = require('../models/User');
 const Product = require('../models/Product');
-const { ROLES } = require('../constants');
+const { ROLES, ENDPOINT } = require('../constants');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const Vendor = require('../models/Vendor');
+const NotificationService = require('../services/notificationService')
 
 // Create an Ad
 router.post('/add/:productId', auth, async (req, res) => {
@@ -66,74 +67,72 @@ router.post('/add/:productId', auth, async (req, res) => {
 
 // Get list of all products with filter
 router.get('/list', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, res) => {
-    const { page = 1, limit = 10, pricePerProduct, category, quantity, isActive, sortField, sortOrder } = req.query;
-    const vendorId = req.user.vendor;
-    const userRole = req.user.role;
+	const { page = 1, limit = 10, pricePerProduct, category, quantity, isActive, sortField, sortOrder } = req.query;
+	const vendorId = req.user.vendor;
+	const userRole = req.user.role;
 
-    let filter = {};
-    let sort = {};
+	let filter = {};
+	let sort = {};
 
-    if (pricePerProduct) {
-        filter.pricePerProduct = { $lte: pricePerProduct };
-    }
+	if (pricePerProduct) {
+		filter.pricePerProduct = { $lte: pricePerProduct };
+	}
 
-    if (category) {
-        filter.category = { $in: category.split(',') };
-    }
+	if (category) {
+		filter.category = { $in: category.split(',') };
+	}
 
-    if (quantity) {
-        filter.quantity = { $gte: quantity };
-    }
+	if (quantity) {
+		filter.quantity = { $gte: quantity };
+	}
 
-    if (sortField && sortOrder) {
-        sort[sortField] = sortOrder === 'asc' ? 1 : -1;
-    } else {
-        sort = { createdAt: -1 }; // Default sorting by createdAt in descending order
-    }
+	if (sortField && sortOrder) {
+		sort[sortField] = sortOrder === 'asc' ? 1 : -1;
+	} else {
+		sort = { createdAt: -1 }; // Default sorting by createdAt in descending order
+	}
 
-    // Filtering by isActive
-    if (isActive !== undefined) {
-        if (isActive === 'false' && userRole !== ROLES.Admin) {
-            return res.status(403).json({ error: 'You are not authorized to view inactive ads' });
-        }
-        filter.isActive = isActive === 'true';
-    } else if (userRole !== ROLES.Admin) {
-        filter.isActive = true; // Default to only active ads for non-admin users
-    }
+	// Filtering by isActive
+	if (isActive !== undefined) {
+		if (isActive === 'false' && userRole !== ROLES.Admin) {
+			return res.status(403).json({ error: 'You are not authorized to view inactive ads' });
+		}
+		filter.isActive = isActive === 'true';
+	} else if (userRole !== ROLES.Admin) {
+		filter.isActive = true; // Default to only active ads for non-admin users
+	}
 
-    try {
-        let adsData;
+	try {
+		let adsData;
 
-        if (vendorId) {
-            const vendorAds = await Vendor.findById(vendorId);
-            adsData = await Ads.find({ ...filter, _id: { $nin: [...vendorAds.ads, ...vendorAds.rejAds] } })
-                .populate('user')
-                .populate('address')
-                .populate('product')
-                .sort(sort)
-                .limit(limit * 1)
-                .skip((page - 1) * limit)
-                .exec();
-        } else {
-            adsData = await Ads.find(filter)
-                .populate('user')
-                .populate('address')
-                .populate('product')
-                .sort(sort)
-                .limit(limit * 1)
-                .skip((page - 1) * limit)
-                .exec();
-        }
+		if (vendorId) {
+			const vendorAds = await Vendor.findById(vendorId);
+			adsData = await Ads.find({ ...filter, _id: { $nin: [...vendorAds.ads, ...vendorAds.rejAds] } })
+				.populate('user')
+				.populate('address')
+				.populate('product')
+				.sort(sort)
+				.limit(limit * 1)
+				.skip((page - 1) * limit)
+				.exec();
+		} else {
+			adsData = await Ads.find(filter)
+				.populate('user')
+				.populate('address')
+				.populate('product')
+				.sort(sort)
+				.limit(limit * 1)
+				.skip((page - 1) * limit)
+				.exec();
+		}
 
-        const count = await Ads.countDocuments(filter);
-        res.json({ adsData, totalPages: Math.ceil(count / limit), currentPage: Number(page), count });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+		const count = await Ads.countDocuments(filter);
+		res.json({ adsData, totalPages: Math.ceil(count / limit), currentPage: Number(page), count });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
 });
-
-
 
 // Get a Specific Ad by ID
 router.get('/:adid', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, res) => {
@@ -194,7 +193,7 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 		}
 
 		// Check if the vendor exists
-		const vendor = await Vendor.findById(vendorId);
+		const vendor = await Vendor.findById(vendorId).populate('user','avatar, firstName');
 		if (!vendor) {
 			return res.status(404).json({ error: 'Vendor not found' });
 		}
@@ -219,6 +218,16 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 		const adDoc = await ad.save();
 		await vendor.save();
 
+		//Notification to user
+		const notificationData = {
+			userId: adDoc.user,
+			title: vendor.user.firstName,
+			avatar: vendor.user.avatar,
+			message: `accept your ad at ptice ₹${pricePerProduct} per Product`,
+			url: `${ENDPOINT.UserProfile}${vendor.user._id}`
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+
 		res.json({ success: true, message: 'Successfully added ad', adDoc });
 	} catch (error) {
 		console.error(error);
@@ -226,7 +235,7 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 	}
 });
 
-// accept ads by vendor
+// cancel ads by vendor
 router.put('/:adId/cancel', auth, role.check(ROLES.Merchant), async (req, res) => {
 	try {
 		const adId = req.params.adId;
@@ -267,7 +276,7 @@ router.put('/:adId/cancel', auth, role.check(ROLES.Merchant), async (req, res) =
 	}
 });
 
-// accept ads by vendor
+// reject ads by vendor
 router.post('/:adId/reject', auth, role.check(ROLES.Merchant), async (req, res) => {
 	try {
 		const adId = req.params.adId;

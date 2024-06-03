@@ -21,7 +21,7 @@ exports.ADMIN_EMAILS = ['Anytruofficial@gmail.com'];
 exports.MERCHANT_STATUS = {
 	Rejected: 'Rejected',
 	Approved: 'Approved',
-	Waiting_Approval: 'Waiting Approval'
+	Waiting_Approval: 'Waiting_Approval'
 };
 
 exports.ORDER_ITEM_STATUS = {

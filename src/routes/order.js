@@ -3,9 +3,9 @@ const router = express.Router();
 const mongoose = require('mongoose');
 
 // Bring in Models & Utils
-const Order = require('../models/order');
+const Order = require('../models/Order');
 const Cart = require('../models/cart');
-const Product = require('../models/product');
+const Product = require('../models/Product');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const mailgun = require('../services/mailgun');
@@ -13,7 +13,8 @@ const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const keys = require('../config/keys');
 const role = require('../middleware/role');
-const { ROLES, ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS } = require('../constants');
+const NotificationService = require('../services/notificationService');
+const { ROLES, ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS, ENDPOINT } = require('../constants');
 
 const instance = new Razorpay({
 	key_id: keys.razorpay.accessKeyId,
@@ -86,7 +87,7 @@ router.post('/verificationPay', auth, async (req, res) => {
 	try {
 		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-		const order = await Order.findOne({ orderId: razorpay_order_id });
+		const order = await Order.findOne({ orderId: razorpay_order_id }).populate('products.vendor','user');
 		if (!order) {
 			return res.status(404).json({ error: 'Order not found' });
 		}
@@ -100,6 +101,22 @@ router.post('/verificationPay', auth, async (req, res) => {
 			order.paymentId = razorpay_payment_id;
 			order.paymentSignature = razorpay_signature;
 			order.status = ORDER_PAYMENT_STATUS.Captured;
+
+		
+
+			order.products.map( async(singleOrder )=>{
+
+					const notificationData = {
+						userId: singleOrder.vendor.user, // review
+						title: singleOrder.product.name,
+						avatar: singleOrder.product.imageUrl,
+						message: `Your offer is accepted by ${order.user}`,
+						url: `${ENDPOINT.Order}${order.orderId}`
+					};
+				const notification = await NotificationService.createNotification(notificationData);
+			} )
+			
+
 		} else {
 			order.status = ORDER_PAYMENT_STATUS.Failed;
 		}
@@ -485,6 +502,15 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 		singleOrder.status = status;
 
 		await findOrder.save();
+
+			const notificationData = {
+				userId: findOrder.user, // review
+				title: singleOrder.product.name,
+				avatar: singleOrder.product.imageUrl,
+				message: `Your offer is being ${singleOrder.status}`,
+				url: `${ENDPOINT.Order}${findOrder.orderId}`
+			};
+			const notification = await NotificationService.createNotification(notificationData);
 
 		res.status(200).json({
 			success: true,

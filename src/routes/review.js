@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Bring in Models & Helpers
 const Review = require('../models/review');
-const Product = require('../models/product');
+const Product = require('../models/Product');
 const auth = require('../middleware/auth');
 const { REVIEW_STATUS } = require('../constants');
 

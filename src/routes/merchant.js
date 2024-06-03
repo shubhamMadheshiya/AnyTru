@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-
+const multer = require('multer');
 // Bring in Models & Helpers
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
@@ -11,118 +11,201 @@ const Merchant = require('../models/merchant');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Brand = require('../models/brand');
-
+const { s3Upload } = require('../utils/storage');
 const mailgun = require('../services/mailgun');
+const storage = multer.memoryStorage();
 
-// add merchant api
-router.post('/add', auth, role.check(ROLES.User), async (req, res) => {
-	let userId = req.user._id;
 
-	try {
-		const findUser = await User.findById(userId);
+// File filter function
+const fileFilter = (req, file, cb) => {
+  // Accept only specific file types (e.g., images and PDFs)
+  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
+  }
+};
 
-		if (!findUser.email) {
-			return res.status(400).json({ error: 'You must update your email in profile section.' });
-		}
-		if (!findUser.userId) {
-			return res.status(400).json({ error: 'You must update your UserId in profile section.' });
-		}
-		if (!findUser.phoneNumber) {
-			return res.status(400).json({ error: 'You must update your phone Number in profile section.' });
-		}
-		const findMerchant = await Merchant.findOne({ user: userId }); //review
-		if (findMerchant) {
-			return res.status(400).json({ error: 'we already have your details as merchant' });
-		}
-
-		//     const findMerchant = await Merchant.findById({}).populate({
-		//   path: 'user',
-		//   match: { email: authorEmail } // Match the author's email
-		// });
-
-		// console.log(findMerchant);
-
-		const { brandId, bankName, accNumber, ifsc, upi, pan, gstin, adharNumber, business } = req.body;
-
-		if (!brandId || !bankName || !accNumber || !ifsc || !upi || !pan || !gstin || !adharNumber || !business) {
-			return res.status(400).json({ error: 'You must enter all details.' });
-		}
-
-		const existingMerchant = await Merchant.findOne({ brandId });
-
-		if (existingMerchant) {
-			return res.status(400).json({ error: 'That Brand Id is already in use.' });
-		}
-
-		const merchant = new Merchant({
-			brandId,
-			bankName,
-			accNumber,
-			ifsc,
-			upi,
-			pan,
-			gstin,
-			adharNumber,
-			business,
-			user: userId
-		});
-		const merchantDoc = await merchant.save();
-
-		await mailgun.sendEmail(findUser.email, 'merchant-application');
-
-		res.status(200).json({
-			success: true,
-			message: `We received your request! we will reach you on your phone number ${findUser.phoneNumber}!`,
-			merchant: merchantDoc
-		});
-	} catch (error) {
-		console.log(error);
-		return res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
+// Multer configuration
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1 * 1024 * 1024 // Limit file size to 1MB
+  },
+  fileFilter: fileFilter
 });
 
+// const upload = multer({ storage });
+
+
+// add merchant api
+router.post(
+	'/add',
+	auth,
+	role.check(ROLES.User),
+	upload.fields([
+		{ name: 'pan', maxCount: 1 },
+		{ name: 'gstin', maxCount: 1 }
+	]),
+	async (req, res) => {
+		let userId = req.user._id;
+
+		try {
+			const findUser = await User.findById(userId);
+
+			if (!findUser.email || !findUser.userId ) {
+				return res.status(400).json({ error: 'You must update your userId in profile section.' });
+			}
+			if (!findUser.phoneNumber) {
+				return res.status(400).json({ error: 'You must update your phone number in profile section.' });
+			}
+
+			const findMerchant = await Merchant.findOne({
+				user: userId,
+				'status': { $in: [MERCHANT_STATUS.Approved, MERCHANT_STATUS.Waiting_Approval] }
+			});
+
+			if (findMerchant) {
+				return res.status(400).json({ error: 'We already have your details as merchant.' });
+			}
+
+			const {
+				brandId,
+				bankName,
+				accNumber,
+				ifsc,
+				upi,
+				business,
+				billingAddress,
+				officeAddress,
+				city,
+				state,
+				zipCode,
+				country,
+				websiteUrl,
+				adharNumber,
+			} = req.body;
+
+			if (
+				!adharNumber,
+				!brandId ||
+				!bankName ||
+				!accNumber ||
+				!ifsc ||
+				!upi ||
+				!business ||
+				!billingAddress ||
+				!officeAddress ||
+				!city ||
+				!state ||
+				!zipCode ||
+				!country
+			) {
+				return res.status(400).json({ error: 'You must enter all details.' });
+			}
+
+			const existingMerchant = await Merchant.findOne({ brandId });
+
+			if (existingMerchant) {
+				return res.status(400).json({ error: 'That Brand Id is already in use.' });
+			}
+
+			// Upload PAN and GSTIN files to S3
+			const panFile = req.files['pan'] ? req.files['pan'][0] : null;
+			const gstinFile = req.files['gstin'] ? req.files['gstin'][0] : null;
+
+			const panFileUrl = panFile ? (await s3Upload(panFile)).imageUrl : null;
+			const gstinFileUrl = gstinFile ? (await s3Upload(gstinFile)).imageUrl : null;
+
+			const merchant = new Merchant({
+				brandId,
+				bankName,
+				accNumber,
+				ifsc,
+				upi,
+				pan: panFileUrl,
+				gstin: gstinFileUrl,
+				business,
+				user: userId,
+				websiteUrl,
+				adharNumber,
+				user:findUser,
+				merchantAddress: {
+					billingAddress,
+					officeAddress,
+					city,
+					state,
+					zipCode,
+					country
+				}
+			});
+
+			const merchantDoc = await merchant.save();
+
+			findUser.merchantReq = merchantDoc;
+			await findUser.save();
+
+			await mailgun.sendEmail(findUser.email, 'merchant-application');
+
+			res.status(200).json({
+				success: true,
+				message: `We received your request! we will reach you on your phone number ${findUser.phoneNumber}!`,
+			});
+		} catch (error) {
+			console.log(error);
+			return res.status(400).json({
+				error: 'Your request could not be processed. Please try again.'
+			});
+		}
+	}
+);
+
 // search merchants api
-router.get('/search', auth, async (req, res) => {
+router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
 		const { search } = req.query;
-		console.log(search);
+		console.log(`Search query: ${search}`);
 
 		const regex = new RegExp(search, 'i');
 
 		const merchants = await Merchant.find({
-			$or: [{ brandId: { $regex: regex } }, { status: { $regex: regex } }]
+			// $or: [{ brandId: { $regex: regex } }, { status: { $regex: regex } }]
 		}).populate({
 			path: 'user',
 			match: {
 				$or: [{ email: { $regex: regex } }, { firstName: { $regex: regex } }, { userId: { $regex: regex } }]
-			}
+			},
+			select: '-password -provider -followers -orders -cart -created -address -following'
 		});
+
+		console.log('Merchants found:', merchants);
 
 		res.status(200).json({
 			merchants
 		});
 	} catch (error) {
+		console.error('Error:', error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
 
-// fetch all merchants api
-router.get('/', auth, async (req, res) => {
-	try {
-		const { page = 1, limit = 10 } = req.query;
 
-		const merchants = await Merchant.find()
-			.populate('user')
+// Fetch all merchants API
+router.get('/list', auth, role.check(ROLES.Admin), async (req, res) => {
+	try {
+		const { page = 1, limit = 10, status } = req.query;
+		const query = status ? { status } : {};
+
+		const merchants = await Merchant.find(query)
+			.populate('user', '-password -provider -followers -orders -cart -created -address -following')
 			.sort('-created')
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
 			.exec();
 
-		const count = await Merchant.countDocuments();
+		const count = await Merchant.countDocuments(query);
 
 		res.status(200).json({
 			merchants,
@@ -131,39 +214,37 @@ router.get('/', auth, async (req, res) => {
 			count
 		});
 	} catch (error) {
-    console.log(error)
+		console.log(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
 
+// // disable merchant account
+// router.put('/:id/active', auth, async (req, res) => {
+// 	try {
+// 		const merchantId = req.params.id;
+// 		const update = req.body.isActive;
+// 		const query = { _id: merchantId };
 
+// 		const merchantDoc = await Merchant.findOneAndUpdate(query, update, {
+// 			new: true
+// 		});
+// 		if (!update.isActive) {
+// 			await deactivateBrand(merchantId);
+// 			await mailgun.sendEmail(merchantDoc.email, 'merchant-deactivate-account');
+// 		}
 
-// disable merchant account
-router.put('/:id/active', auth, async (req, res) => {
-	try {
-		const merchantId = req.params.id;
-		const update = req.body.isActive;
-		const query = { _id: merchantId };
-
-		const merchantDoc = await Merchant.findOneAndUpdate(query, update, {
-			new: true
-		});
-		if (!update.isActive) {
-			await deactivateBrand(merchantId);
-			await mailgun.sendEmail(merchantDoc.email, 'merchant-deactivate-account');
-		}
-
-		res.status(200).json({
-			success: true
-		});
-	} catch (error) {
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
-});
+// 		res.status(200).json({
+// 			success: true
+// 		});
+// 	} catch (error) {
+// 		res.status(400).json({
+// 			error: 'Your request could not be processed. Please try again.'
+// 		});
+// 	}
+// });
 
 // approve merchant
 router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
@@ -182,7 +263,6 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		// 	});
 		// }
 
-		
 		if (me.user.role === ROLES.Merchant) {
 			return res.status(400).json({
 				error: 'User already have Merchant Account.'
@@ -194,9 +274,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 
 		// await mailgun.sendEmail(merchantDoc.user.email, 'merchant-approve', null, merchantDoc.user.firstName);
 		console.log(merchantDoc.user);
-		await createMerchantUser(
-			merchantDoc
-		);
+		await createMerchantUser(merchantDoc);
 
 		res.status(200).json({
 			success: true
@@ -301,11 +379,10 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 // });
 
 router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => {
-
 	try {
 		const merchantId = req.params.id;
 		// await deactivateBrand(merchantId);
-    
+
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
 		if (me.status === MERCHANT_STATUS.Approved) {
 			return res.status(400).json({
@@ -325,7 +402,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 			merchant
 		});
 	} catch (error) {
-    console.log(error)
+		console.log(error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
@@ -371,9 +448,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 // };
 
 const createMerchantUser = async (merchantDoc) => {
-
-
-  console.log(merchantDoc)
+	console.log(merchantDoc);
 	try {
 		const newVendor = new Vendor({
 			name: merchantDoc.brandId,

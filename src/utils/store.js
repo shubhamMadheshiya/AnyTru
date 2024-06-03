@@ -1,4 +1,4 @@
-const Product = require('../models/product');
+const Product = require('../models/Product');
 const taxConfig = require('../config/tax');
 
 exports.disableProducts = products => {

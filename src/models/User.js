@@ -75,7 +75,7 @@ const userSchema = new mongoose.Schema({
 		enum: ['creater', 'seller'],
 		default: 'creater'
 	},
-	merchant: {
+	merchantReq: {
 		type: mongoose.Schema.Types.ObjectId,
 		ref: 'merchant',
 		default: null

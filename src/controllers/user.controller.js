@@ -5,7 +5,8 @@ const jwt = require('jsonwebtoken');
 const { s3Upload } = require('../utils/storage');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
+const NotificationService = require('../services/notificationService')
+const { ENDPOINT } = require('../constants/index')
 // Controller function to create a new user
 exports.createUser = async (req, res) => {
 	try {
@@ -160,10 +161,20 @@ exports.followUser = async (req, res) => {
 		// Update the user being followed
 		const userToFollow = await User.findByIdAndUpdate(userToFollowId, { $addToSet: { followers: req.user._id } }, { new: true });
 
+		const notificationData = {
+			userId: userToFollow._id,
+			title: user.firstName,
+			avatar: user.avatar,
+			message: `Started following you`,
+			url: `${ENDPOINT.UserProfile}${user._id}`
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+	
+
 		res.status(200).json({ message: 'You are now following the user', user: userToFollow });
 	} catch (error) {
 		console.log(error);
-		res.status(500).json({ message: error.message });
+		res.status(500).json({ error: error.message });
 	}
 };
 

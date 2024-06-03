@@ -14,7 +14,8 @@ const role = require('../middleware/role');
 const checkAuth = require('../utils/auth');
 const { s3Upload } = require('../utils/storage');
 const { getStoreProductsQuery, getStoreProductsWishListQuery } = require('../utils/queries');
-const { ROLES, CATEGORIES } = require('../constants');
+const { ROLES, CATEGORIES, ENDPOINT } = require('../constants');
+const NotificationService = require('../services/notificationService');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -53,7 +54,7 @@ router.get('/item/:slug', async (req, res) => {
 
 // complete
 // fetch product name search api
-router.get('/list/search/:name',  async (req, res) => {
+router.get('/list/search/:name', async (req, res) => {
 	let isAdmin;
 	const userDoc = await checkAuth(req);
 
@@ -317,13 +318,23 @@ router.put('/:id/active', auth, async (req, res) => {
 
 		const query = { _id: productId };
 
-		await Product.findOneAndUpdate(
+		const productDoc = await Product.findOneAndUpdate(
 			query,
 			{ isActive },
 			{
 				new: true
 			}
 		);
+		const notificationData = {
+			userId: productDoc.user,
+			title: productDoc.name,
+			// avatar: productDoc.imageUrl,
+			message: `Your Product is now Active`,
+			url: `${ENDPOINT.Product}${productDoc._id}`,
+			imgUrl: productDoc.imageUrl
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+		
 
 		res.status(200).json({
 			success: true,
@@ -360,7 +371,12 @@ router.put('/like/:productId', auth, async (req, res) => {
 		const { productId } = req.params;
 		const userId = req.user._id;
 
-		const product = await Product.findById(productId);
+		const product = await Product.findById(productId)
+		const findUser = await User.findById(userId);
+
+		if(!findUser){
+			res.status(404).json({error:'User not found'})
+		}
 
 		if (!product) {
 			return res.status(404).json({
@@ -370,11 +386,24 @@ router.put('/like/:productId', auth, async (req, res) => {
 		}
 
 		const likeIndex = product.likes.indexOf(userId);
+		console.log(findUser);
 
 		if (likeIndex === -1) {
 			// User has not liked the product, so like it
 			product.likes.push(userId);
 			message = 'Product liked successfully!';
+			const notificationData = {
+				userId: product.user,
+				title: findUser.userId,
+				avatar: findUser.avatar,
+				message: `liked your post`,
+				url: `${ENDPOINT.Product}${product._id}`,
+				imgUrl: product.imageUrl
+			};
+			console.log(notificationData)
+			const notification = await NotificationService.createNotification(notificationData);
+			
+		
 		} else {
 			// User has already liked the product, so dislike it
 			product.likes.pull(userId);

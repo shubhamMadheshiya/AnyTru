@@ -4,7 +4,7 @@ const router = express.Router();
 // Bring in Models & Utils
 const Brand = require('../models/brand');
 const Vendor = require('../models/Vendor');
-const Product = require('../models/product');
+const Product = require('../models/Product');
 const Merchant = require('../models/merchant');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');

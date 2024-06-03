@@ -141,7 +141,7 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 			bio,
 			userId
 		};
-		console.log(data)
+		
 
 	
 
