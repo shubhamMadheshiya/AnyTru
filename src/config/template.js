@@ -5,7 +5,7 @@ exports.resetEmail = (host, resetToken) => {
 			`${
 				'You are receiving this because you have requested to reset your password for your account.\n\n' +
 				'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
-				'http://'
+				'https://'
 			}${host}/reset-password/${resetToken}\n\n` +
 			`If you did not request this, please ignore this email and your password will remain unchanged.\n`
 	};
@@ -42,7 +42,7 @@ exports.merchantSignup = (host, { resetToken, email }) => {
 		text: `${
 			'Congratulations! Your application has been accepted. Please complete your Merchant account signup by clicking on the link below. \n\n' +
 			'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
-			'http://'
+			'https://'
 		}${host}/merchant-signup/${resetToken}?email=${email}\n\n`
 	};
 
