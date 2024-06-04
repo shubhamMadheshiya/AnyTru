@@ -194,7 +194,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 		res.status(200).json({
 			success: true,
 			message: `Brand has been deleted successfully!`,
-			brand
+			
 		});
 	} catch (error) {
 		res.status(400).json({

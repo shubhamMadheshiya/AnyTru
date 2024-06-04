@@ -53,11 +53,11 @@ exports.EMAIL_PROVIDER = {
 };
 
 exports.ENDPOINT = {
-	Product: '/product/', //approveProduct / likes
-	UserProfile: '/user/', //follow rating
-	Ads: '/ads/', //ads bid
-	Order: '/order/', //order
-	Message: '/message/' //message
+	Product: `${keys.app.clientURL}/product/`, //approveProduct / likes
+	UserProfile: `${keys.app.clientURL}/user/`, //follow rating
+	Ads: `${keys.app.clientURL}/ads/`, //ads bid
+	Order: `${keys.app.clientURL}/order/`, //order
+	Message: `${keys.app.clientURL}/message/` //message
 };
 
 exports.JWT_COOKIE = 'x-jwt-cookie';

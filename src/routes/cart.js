@@ -1,22 +1,22 @@
 const express = require('express');
 const router = express.Router();
-
-// Bring in Models & Utils
-const Cart = require('../models/cart');
-const Product = require('../models/Product')
+const Cart = require('../models/Cart');
+const Product = require('../models/Product');
 const auth = require('../middleware/auth');
-const store = require('../utils/store');
 const Ads = require('../models/Ads');
 
+// Add item to cart
 router.post('/add', auth, async (req, res) => {
 	try {
 		const userId = req.user._id;
 		const { adId, offerId } = req.body;
 		const findAd = await Ads.findOne({ _id: adId });
-		console.log('findAd', findAd);
 
-		// Check if the vendor ID is included in the vendors array
-		const offer = findAd.vendors.find((vendor) => vendor._id == offerId);
+		if (!findAd) {
+			return res.status(404).json({ error: 'Ad not found' });
+		}
+
+		const offer = findAd.offers.find((offer) => offer._id.toString() === offerId);
 
 		if (!offer) {
 			return res.status(401).json({ error: 'This offer is not for this ad' });
@@ -39,7 +39,7 @@ router.post('/add', auth, async (req, res) => {
 		let cart = await Cart.findOne({ user: userId });
 
 		if (cart) {
-			if (cart.products.some((product) => product.offerId == offer._id)) {
+			if (cart.products.some((product) => product.offerId.toString() === offer._id.toString())) {
 				return res.status(401).json({ error: 'This offer is already added to the cart' });
 			}
 			cart.products.push(product);
@@ -67,6 +67,7 @@ router.post('/add', auth, async (req, res) => {
 		});
 	}
 });
+
 // Remove item from cart
 router.delete('/remove/:productId', auth, async (req, res) => {
 	try {
@@ -79,7 +80,7 @@ router.delete('/remove/:productId', auth, async (req, res) => {
 			return res.status(404).json({ error: 'Cart not found' });
 		}
 
-		const productIndex = cart.products.findIndex((product) => product._id == productId);
+		const productIndex = cart.products.findIndex((product) => product._id.toString() === productId);
 
 		if (productIndex === -1) {
 			return res.status(404).json({ error: 'Product not found in cart' });
@@ -100,66 +101,5 @@ router.delete('/remove/:productId', auth, async (req, res) => {
 		res.status(500).json({ error: 'Internal server error' });
 	}
 });
-
-// router.delete('/delete/:cartId', auth, async (req, res) => {
-// 	try {
-// 		await Cart.deleteOne({ _id: req.params.cartId });
-
-// 		res.status(200).json({
-// 			success: true
-// 		});
-// 	} catch (error) {
-// 		res.status(400).json({
-// 			error: 'Your request could not be processed. Please try again.'
-// 		});
-// 	}
-// });
-
-// router.post('/add/:cartId', auth, async (req, res) => {
-// 	try {
-// 		const product = req.body.product;
-// 		const query = { _id: req.params.cartId };
-
-// 		await Cart.updateOne(query, { $push: { products: product } }).exec();
-
-// 		res.status(200).json({
-// 			success: true
-// 		});
-// 	} catch (error) {
-// 		res.status(400).json({
-// 			error: 'Your request could not be processed. Please try again.'
-// 		});
-// 	}
-// });
-
-// router.delete('/delete/:cartId/:productId', auth, async (req, res) => {
-// 	try {
-// 		const product = { product: req.params.productId };
-// 		const query = { _id: req.params.cartId };
-
-// 		await Cart.updateOne(query, { $pull: { products: product } }).exec();
-
-// 		res.status(200).json({
-// 			success: true
-// 		});
-// 	} catch (error) {
-// 		res.status(400).json({
-// 			error: 'Your request could not be processed. Please try again.'
-// 		});
-// 	}
-// });
-
-// const decreaseQuantity = (products) => {
-// 	let bulkOptions = products.map((item) => {
-// 		return {
-// 			updateOne: {
-// 				filter: { _id: item.product },
-// 				update: { $inc: { quantity: -item.quantity } }
-// 			}
-// 		};
-// 	});
-
-// 	Product.bulkWrite(bulkOptions);
-// };
 
 module.exports = router;

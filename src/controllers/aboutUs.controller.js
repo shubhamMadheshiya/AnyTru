@@ -7,9 +7,9 @@ exports.createAboutUs = async (req, res) => {
 		const { content } = req.body;
 		const aboutUs = new AboutUs({ content });
 		const savedAboutUs = await aboutUs.save();
-		res.status(201).json(savedAboutUs);
+		res.status(201).json({ success: true,  message: 'About Us information created successfully' ,savedAboutUs});
 	} catch (error) {
-		res.status(400).json({ message: error.message });
+		res.status(400).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -23,9 +23,9 @@ exports.getAboutUs = async (req, res) => {
 			aboutUs = new AboutUs();
 		}
 
-		res.status(200).json(aboutUs);
+		res.status(200).json({aboutUs});
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -34,9 +34,9 @@ exports.updateAboutUs = async (req, res) => {
 	try {
 		const { content } = req.body;
 		const updatedAboutUs = await AboutUs.findOneAndUpdate({}, { content }, { new: true });
-		res.status(200).json(updatedAboutUs);
+		res.status(200).json({ success: true,  message: 'About Us information updated successfully' ,updatedAboutUs });
 	} catch (error) {
-		res.status(400).json({ message: error.message });
+		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -44,8 +44,8 @@ exports.updateAboutUs = async (req, res) => {
 exports.deleteAboutUs = async (req, res) => {
 	try {
 		await AboutUs.deleteOne();
-		res.status(200).json({ message: 'About Us information deleted successfully' });
+		res.status(200).json({success: true, message: 'About Us information deleted successfully' });
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };

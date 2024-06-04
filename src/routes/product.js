@@ -8,7 +8,6 @@ const Mongoose = require('mongoose');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const Brand = require('..//models/brand');
-const Category = require('../models/category');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const checkAuth = require('../utils/auth');
@@ -127,7 +126,7 @@ router.get('/list', async (req, res) => {
 		// 	filter.isActive = true; // Non-admin users can only see active products
 		// }
 
-		console.log(filter);
+		
 		// Find products with the given filters
 		let productsQuery = Product.find(filter)
 			.populate('user')
@@ -166,18 +165,20 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 		const userId = req.user._id;
 		const image = req.file;
 
-		const findUser = await User.findById(userId);
+		// Validate user
+		const findUser = await User.findById(userId).populate({ path: 'followers', select: 'userId firstName avatar' });
 
 		if (!findUser) {
 			return res.status(404).json({ error: 'User not found' });
 		}
 
+		// Validate required fields
 		if (!sku) {
-			return res.status(400).json({ error: 'You must enter sku.' });
+			return res.status(400).json({ error: 'You must enter a SKU.' });
 		}
 
 		if (!description || !name) {
-			return res.status(400).json({ error: 'You must enter description & name.' });
+			return res.status(400).json({ error: 'You must enter description and name.' });
 		}
 
 		// Validate categories
@@ -188,28 +189,45 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 			}
 		}
 
+		// Check if SKU is unique
 		const foundProduct = await Product.findOne({ sku });
 
 		if (foundProduct) {
-			return res.status(400).json({ error: 'This sku is already in use.' });
+			return res.status(400).json({ error: 'This SKU is already in use.' });
 		}
 
+		// Upload image to S3
 		const { imageUrl, imageKey } = await s3Upload(image);
 
+		// Create product data
 		const data = {
 			sku,
 			name,
 			description,
 			category: categoriesArray,
-			user: userId,
+			user: findUser._id,
 			imageUrl,
 			imageKey,
 			tags: Array.isArray(tags) ? tags : tags.split(',').map((tag) => tag.trim()),
 			link
 		};
 
+		// Save product to the database
 		const product = new Product(data);
 		const savedProduct = await product.save();
+
+		// Notify followers
+		for (const follower of findUser.followers) {
+			const notificationData = {
+				userId: follower._id,
+				title: follower.userId,
+				avatar: follower.avatar,
+				message: `uploaded a new post`,
+				url: `${ENDPOINT.Product}${savedProduct._id}`,
+				imgUrl: savedProduct.imageUrl
+			};
+			await NotificationService.createNotification(notificationData);
+		}
 
 		res.status(200).json({
 			success: true,
@@ -217,7 +235,7 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 			product: savedProduct
 		});
 	} catch (error) {
-		console.log(error);
+		console.error(error);
 		return res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
@@ -265,7 +283,7 @@ router.get('/:id', async (req, res) => {
 				error: 'No data found'
 			});
 		}
-		return res.status(200).json(productDoc);
+		return res.status(200).json({productDoc});
 	} catch (error) {
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
@@ -386,7 +404,7 @@ router.put('/like/:productId', auth, async (req, res) => {
 		}
 
 		const likeIndex = product.likes.indexOf(userId);
-		console.log(findUser);
+	
 
 		if (likeIndex === -1) {
 			// User has not liked the product, so like it

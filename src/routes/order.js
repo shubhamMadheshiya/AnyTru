@@ -70,7 +70,7 @@ router.post('/checkout/:cartId', auth, async (req, res) => {
 
 		res.status(200).json({
 			success: true,
-			message: 'Your order has been placed successfully!',
+			message: 'Your order has been created successfully!',
 			orderDoc
 		});
 	} catch (error) {
@@ -131,8 +131,8 @@ router.post('/verificationPay', auth, async (req, res) => {
 	} catch (error) {
 		console.error('Error during payment verification:', error);
 		res.status(500).json({
-			success: false,
-			message: 'Internal Server Error'
+			
+			error: 'Internal Server Error'
 		});
 	}
 });
@@ -207,7 +207,7 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 			return res.status(404).json({ error: `No order found with orderId ${search}` });
 		}
 
-		res.status(200).json(order);
+		res.status(200).json({order});
 	} catch (error) {
 		console.error('Error fetching order:', error);
 		res.status(500).json({

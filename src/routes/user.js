@@ -4,7 +4,7 @@ const role = require('../middleware/role');
 const userController = require('../controllers/user.controller');
 const auth = require('../middleware/auth');
 const { authorizeRole } = require('../middleware/authorizeRole');
-const { ROLES, MERCHANT_STATUS } = require('../constants/index');
+const { ROLES, MERCHANT_STATUS, ADMIN_EMAILS } = require('../constants/index');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Merchant = require('../models/merchant');
@@ -99,7 +99,7 @@ router.get('/vendor/status', auth, async (req, res) => {
 		if (!findVendorReq) {
 			return res.status(400).json({ error: 'No request found' });
 		}
-		return res.status(200).json(findVendorReq);
+		return res.status(200).json({findVendorReq});
 	} catch (error) {
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
@@ -157,36 +157,53 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 		// Check if the userId is unique
 		const existingUser = await User.findOne({ userId });
 		if (existingUser && userId !== undefined) {
-			return res.status(400).json({ message: 'userId is already in use by another user' });
+			return res.status(400).json({ error: 'userId is already in use by another user' });
 		}
 		
 
 		// Update the user
 		const updatedUser = await User.findOneAndUpdate({ _id: req.params.userId }, data, { new: true });
 		if (!updatedUser) {
-			return res.status(404).json({ message: 'User not found' });
+			return res.status(404).json({ error : 'User not found' });
 		}
 
 		// Handle avatar upload if present
 		if (avatar) {
 			if (updatedUser.avatarKey) {
 				const deleteImg = await s3Delete([updatedUser.avatarKey]);
-				console.log(deleteImg);
 			}
 			const { imageUrl, imageKey } = await s3Upload(avatar);
 			updatedUser.avatar = imageUrl;
 			updatedUser.avatarKey = imageKey;
 			updatedUser.save();
 		}
-		res.status(200).json(updatedUser);
+		res.status(200).json({success: true, message:"Updated Successfully"});
 	} catch (error) {
 		console.log(error);
-		res.status(500).json({ message: error.message });
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 });
 
 // DELETE request to delete user by userId
-router.delete('/:userId', auth, userController.deleteUser);
+router.delete('/:userId', auth, async (req, res) => {
+	try {
+		const findUser = await User.findById(req.params.userId);
+		if (ADMIN_EMAILS.includes(findUser.email)) {
+			return res.status(403).json({ error: 'You can delete Prime Adimin' });
+		}
+			if (findUser.avatarKey) {
+				const deleteImg = await s3Delete([findUser.avatarKey]);
+			}
+		const deletedUser = await User.findOneAndDelete({ _id: req.params.userId });
+		if (!deletedUser) {
+			return res.status(404).json({ message: 'User not found' });
+		}
+		res.status(200).json({ success: true ,message: 'User deleted successfully' });
+	} catch (error) {
+		res.status(500).json({ error: "Your request could not be processed. Please try again." });
+	}
+}
+);
 
 // POST request to follow a user
 router.post('/:userId/follow', auth, userController.followUser);
@@ -194,11 +211,6 @@ router.post('/:userId/follow', auth, userController.followUser);
 // POST request to unfollow a user
 router.post('/:userId/unfollow', auth, userController.unfollowUser);
 
-// POST request to place an order
-// router.post('/order', userController.placeOrder);
-
-// POST request to rate a user
-router.post('/rate', userController.rateUser);
 
 // POST request to switch account type
 router.post('/switch-account', userController.switchAccountType);

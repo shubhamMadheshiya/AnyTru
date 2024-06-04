@@ -8,14 +8,15 @@ const { ROLES, ENDPOINT } = require('../constants');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const Vendor = require('../models/Vendor');
-const NotificationService = require('../services/notificationService')
+const NotificationService = require('../services/notificationService');
+
 
 // Create an Ad
 router.post('/add/:productId', auth, async (req, res) => {
 	try {
 		const userId = req.user._id;
 		const productId = req.params.productId;
-		const { pricePerProduct, quantity } = req.body;
+		const { pricePerProduct, quantity, addressId } = req.body;
 
 		if (!pricePerProduct || !quantity) {
 			return res.status(400).json({ error: 'Please provide price and quantity' }); // Changed status code to 400 Bad Request
@@ -27,10 +28,19 @@ router.post('/add/:productId', auth, async (req, res) => {
 			return res.status(404).json({ error: 'User not found' });
 		}
 
-		const address = await Address.findOne({ user: userId, isDefault: true });
+		let address;
 
-		if (!address) {
-			return res.status(404).json({ error: "User doesn't have a default address" });
+		if (!addressId) {
+			address = await Address.findOne({ user: userId, isDefault: true });
+		} else {
+			findAddress = await Address.findById(addressId);
+			
+			if(!findAddress){
+				 return res.status(404).json({ error: 'Address not found' });
+
+			}
+			
+			address = findAddress;
 		}
 
 		const product = await Product.findOne({ _id: productId, isActive: true });
@@ -46,9 +56,9 @@ router.post('/add/:productId', auth, async (req, res) => {
 		// }
 
 		const ads = new Ads({
-			user: user._id,
-			product: product._id,
-			address: address._id,
+			user: user,
+			product,
+			address,
 			pricePerProduct,
 			quantity,
 			category: product.category
@@ -59,6 +69,37 @@ router.post('/add/:productId', auth, async (req, res) => {
 			message: 'Ad has been added successfully!',
 			ad: savedAd // Changed variable name to clarify it's a single ad
 		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Get user's ads
+router.get('/myAds', auth, async (req, res) => {
+	const userId = req.user._id;
+	const { isActive, page = 1, limit = 10 } = req.query;
+
+	let filter = { user: userId };
+
+	// Filtering by isActive
+	if (isActive !== undefined) {
+		filter.isActive = isActive === 'true';
+	}
+
+	try {
+		const adsData = await Ads.find(filter)
+			.populate('user', '_id firstName userId isActive avatar role')
+			.populate('product', '_id sku name imageUrl description isActive category ')
+			.populate('address', '_id city')
+			.sort({ createdAt: -1 }) // Default sorting by createdAt in descending order
+			.limit(limit * 1)
+			.skip((page - 1) * limit)
+			.exec();
+
+		const count = await Ads.countDocuments(filter);
+
+		res.json({ adsData, totalPages: Math.ceil(count / limit), currentPage: Number(page), count });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: 'Internal server error' });
@@ -108,18 +149,18 @@ router.get('/list', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, r
 		if (vendorId) {
 			const vendorAds = await Vendor.findById(vendorId);
 			adsData = await Ads.find({ ...filter, _id: { $nin: [...vendorAds.ads, ...vendorAds.rejAds] } })
-				.populate('user')
-				.populate('address')
-				.populate('product')
+				.populate('user', '_id firstName userId isActive avatar role')
+				.populate('address', '_id city')
+				.populate('product', '_id sku name imageUrl description isActive category')
 				.sort(sort)
 				.limit(limit * 1)
 				.skip((page - 1) * limit)
 				.exec();
 		} else {
 			adsData = await Ads.find(filter)
-				.populate('user')
-				.populate('address')
-				.populate('product')
+				.populate('user', '_id firstName userId isActive avatar role')
+				.populate('address', '_id city')
+				.populate('product', '_id sku name imageUrl description isActive category')
 				.sort(sort)
 				.limit(limit * 1)
 				.skip((page - 1) * limit)
@@ -133,7 +174,7 @@ router.get('/list', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, r
 		res.status(500).json({ error: 'Internal server error' });
 	}
 });
-
+////````inActive not to merchant also show to user
 // Get a Specific Ad by ID
 router.get('/:adid', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, res) => {
 	try {
@@ -150,6 +191,7 @@ router.get('/:adid', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, 
 
 // Update an Ad
 router.put('/:adId', auth, async (req, res) => {
+	
 	try {
 		const ad = await Ads.findByIdAndUpdate(req.params.adId, req.body, { new: true });
 		if (!ad) {
@@ -193,7 +235,7 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 		}
 
 		// Check if the vendor exists
-		const vendor = await Vendor.findById(vendorId).populate('user','avatar, firstName');
+		const vendor = await Vendor.findById(vendorId).populate('user', 'avatar, firstName');
 		if (!vendor) {
 			return res.status(404).json({ error: 'Vendor not found' });
 		}
@@ -210,8 +252,8 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 			remark,
 			vendor: vendorId
 		};
-		// Add the vendor to the ad's vendors array
-		ad.vendors.push(vendorDetails);
+		// Add the vendor to the ad's offers array
+		ad.offers.push(vendorDetails);
 		vendor.ads.push(adId);
 
 		// Save the updated ad and vendor documents
@@ -237,44 +279,43 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 
 // cancel ads by vendor
 router.put('/:adId/cancel', auth, role.check(ROLES.Merchant), async (req, res) => {
-	try {
-		const adId = req.params.adId;
-		const vendorId = req.user.vendor;
+    try {
+        const adId = req.params.adId;
+        const vendorId = req.user.vendor;
 
-		console.log(vendorId);
+        // Check if the ad exists
+        const ad = await Ads.findById(adId);
+        if (!ad) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
 
-		// Check if the ad exists
-		const ad = await Ads.findById(adId);
-		if (!ad) {
-			return res.status(404).json({ error: 'Ad not found' });
-		}
+        // Check if the vendor exists
+        const vendor = await Vendor.findById(vendorId);
+        if (!vendor) {
+            return res.status(404).json({ error: 'Vendor not found' });
+        }
 
-		// Check if the vendor exists
-		const vendor = await Vendor.findById(vendorId);
-		if (!vendor) {
-			return res.status(404).json({ error: 'Vendor not found' });
-		}
+        // Check if the vendor has already accepted the ad
+        const offerIndex = ad.offers.findIndex(offer => offer.vendor.toString() === vendorId.toString());
+        if (offerIndex === -1) {
+            return res.status(400).json({ error: 'Vendor yet not accept the ad' });
+        }
 
-		// Check if the vendor is already associated with the ad
+        // Remove the offer from the ad's offers array
+        ad.offers.splice(offerIndex, 1);
+        vendor.ads.pull(adId);
 
-		if (!vendor.ads.includes(adId)) {
-			return res.status(400).json({ error: 'Vendor yet not accept the ad' });
-		}
+        // Save the updated ad and vendor documents
+        const adDoc = await ad.save();
+        await vendor.save();
 
-		// Add the vendor to the ad's vendors array
-		ad.vendors.pull(vendorId);
-		vendor.ads.pull(adId);
-
-		// Save the updated ad and vendor documents
-		const adDoc = await ad.save();
-		await vendor.save();
-
-		res.json({ success: true, message: 'Successfull cancel ad' });
-	} catch (error) {
-		console.error(error);
-		res.status(500).json({ error: 'Internal server error' });
-	}
+        res.json({ success: true, message: 'Successfully cancelled ad' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
+
 
 // reject ads by vendor
 router.post('/:adId/reject', auth, role.check(ROLES.Merchant), async (req, res) => {

@@ -8,8 +8,8 @@ const NotificationService = require('../services/notificationService');
 //get all notification
 router.get('/', auth, async (req, res) => {
 	const userId = req.user._id;
-	const notifications = await NotificationService.getNotifications(userId);
-	res.json(notifications);
+	const notifications = await NotificationService.getNotifications(userId)
+	res.json({notifications});
 });
 
 // mark read notification

@@ -310,8 +310,8 @@ router.get(
 		session: false,
 		scope: ['profile', 'email'],
 		accessType: 'offline',
-		// approvalPrompt: 'force',
-		prompt: 'select_account'
+		approvalPrompt: 'force',
+		// prompt: 'select_account'
 	})
 );
 

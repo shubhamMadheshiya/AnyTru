@@ -26,7 +26,7 @@ const adsSchema = new mongoose.Schema(
 			type: Number,
 			required: true
 		},
-		vendors: [
+		offers: [
 			{
 				vendor: {
 					type: mongoose.Schema.Types.ObjectId,
@@ -43,6 +43,21 @@ const adsSchema = new mongoose.Schema(
 				}
 			}
 		],
+		acceptedOffer: {
+			vendor: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: 'Vendor'
+			},
+			pricePerProduct: {
+				type: Number
+			},
+			dispatchDay: {
+				type: Number
+			},
+			remark: {
+				type: String
+			}
+		},
 		isActive: {
 			type: Boolean,
 			default: true

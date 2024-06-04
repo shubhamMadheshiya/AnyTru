@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
-const mailchimp = require('../../services/mailchimp');
-const mailgun = require('../../services/mailgun');
+const mailchimp = require('../services/mailchimp');
+const mailgun = require('../services/mailgun');
 
 router.post('/subscribe', async (req, res) => {
   const email = req.body.email;

@@ -57,6 +57,7 @@ exports.createUser = async (req, res) => {
 
 		res.status(200).json({
 			success: true,
+			message: 'User has been created',
 			// subscribed,
 			user: {
 				id: registeredUser.id,
@@ -79,11 +80,11 @@ exports.getUser = async (req, res) => {
 		
 		const user = await User.findOne({ _id: req.user._id });
 		if (!user) {
-			return res.status(404).json({ message: 'User not found' });
+			return res.status(404).json({ error : 'User not found' });
 		}
-		res.status(200).json(user);
+		res.status(200).json({user});
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -93,41 +94,26 @@ exports.getUserById = async (req, res) => {
 	
 		const user = await User.findOne({ _id: req.params.userId });
 		if (!user) {
-			return res.status(404).json({ message: 'User not found' });
+			return res.status(404).json({ error: 'User not found' });
 		}
-		res.status(200).json(user);
+		res.status(200).json({user});
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
-// Controller function to delete user by userId
-exports.deleteUser = async (req, res) => {
-	try {
-		const findUser = await User.findById(req.params.userId);
-		if (ADMIN_EMAILS.includes(findUser.email)) {
-			return res.status(403).json({ error: 'You can delete Prime Adimin' });
-		}
-		const deletedUser = await User.findOneAndDelete({ _id: req.params.userId });
-		if (!deletedUser) {
-			return res.status(404).json({ message: 'User not found' });
-		}
-		res.status(200).json({ message: 'User deleted successfully' });
-	} catch (error) {
-		res.status(500).json({ message: error.message });
-	}
-};
 
 // Controller function to get followers of a user by userId
 exports.getFollowers = async (req, res) => {
 	try {
 		const user = await User.findById(req.params.userId).populate('followers', 'firstName lastName email');
 		if (!user) {
-			return res.status(404).json({ message: 'User not found' });
+			return res.status(404).json({ error: 'User not found' });
 		}
-		res.status(200).json(user.followers);
+		res.status(200).json({ followers: user.followers });
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		console.error(error);
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -136,11 +122,11 @@ exports.getFollowing = async (req, res) => {
 	try {
 		const user = await User.findById(req.params.userId).populate('following', 'firstName lastName email');
 		if (!user) {
-			return res.status(404).json({ message: 'User not found' });
+			return res.status(404).json({ error : 'User not found' });
 		}
-		res.status(200).json(user.following);
+		res.status(200).json({following: user.following});
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -152,7 +138,7 @@ exports.followUser = async (req, res) => {
 
 		// Check if user is already following the user to be followed
 		if (user.following.includes(userToFollowId)) {
-			return res.status(400).json({ message: 'You are already following this user' });
+			return res.status(400).json({ error : 'You are already following this user' });
 		}
 
 		user.following.push(userToFollowId);
@@ -169,12 +155,13 @@ exports.followUser = async (req, res) => {
 			url: `${ENDPOINT.UserProfile}${user._id}`
 		};
 		const notification = await NotificationService.createNotification(notificationData);
+		console.log(notification)
 	
 
-		res.status(200).json({ message: 'You are now following the user', user: userToFollow });
+		res.status(200).json({success: true, message: 'You are now following the user', user: userToFollow });
 	} catch (error) {
 		console.log(error);
-		res.status(500).json({ error: error.message });
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -186,7 +173,7 @@ exports.unfollowUser = async (req, res) => {
 
 		// Check if user is not following the user to be unfollowed
 		if (!user.following.includes(userToUnfollowId)) {
-			return res.status(400).json({ message: 'You are not following this user' });
+			return res.status(400).json({ error: 'You are not following this user' });
 		}
 
 		user.following.pull(userToUnfollowId);
@@ -195,39 +182,14 @@ exports.unfollowUser = async (req, res) => {
 		// Update the user being unfollowed
 		await User.findByIdAndUpdate(userToUnfollowId, { $pull: { followers: req.user._id } });
 
-		res.status(200).json({ message: 'You have unfollowed the user' });
+		res.status(200).json({success: true, message: 'You have unfollowed the user' });
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
-// Controller function to place an order
-exports.placeOrder = async (req, res) => {
-	try {
-		// Implement order creation logic here
-		res.status(200).json({ message: 'Order placed successfully' });
-	} catch (error) {
-		res.status(500).json({ message: error.message });
-	}
-};
 
-// Controller function to rate a user
-exports.rateUser = async (req, res) => {
-	try {
-		const { userId, rating } = req.body;
-		const user = await User.findById(userId);
-		if (!user) {
-			return res.status(404).json({ message: 'User not found' });
-		}
 
-		user.rating = rating;
-		await user.save();
-
-		res.status(200).json({ message: 'User rated successfully', user });
-	} catch (error) {
-		res.status(500).json({ message: error.message });
-	}
-};
 
 // Controller function to switch account type
 exports.switchAccountType = async (req, res) => {
@@ -241,8 +203,8 @@ exports.switchAccountType = async (req, res) => {
 		user.accountType = accountType;
 		await user.save();
 
-		res.status(200).json({ message: 'Account type switched successfully', user });
+		res.status(200).json({success: true, message: 'Account type switched successfully', user });
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({error: 'Your request could not be processed. Please try again.' });
 	}
 };

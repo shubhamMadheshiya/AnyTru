@@ -160,7 +160,7 @@ router.post(
 			});
 		} catch (error) {
 			console.log(error);
-			return res.status(400).json({
+			return res.status(500).json({
 				error: 'Your request could not be processed. Please try again.'
 			});
 		}
@@ -194,7 +194,7 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 		});
 	} catch (error) {
 		console.error('Error:', error);
-		res.status(400).json({
+		res.status(500).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
@@ -224,7 +224,7 @@ router.get('/list', auth, role.check(ROLES.Admin), async (req, res) => {
 		});
 	} catch (error) {
 		console.log(error);
-		res.status(400).json({
+		res.status(500).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
@@ -302,7 +302,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		});
 	} catch (error) {
 		console.log(error);
-		res.status(400).json({
+		res.status(500).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
@@ -350,7 +350,7 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 			success: true
 		});
 	} catch (error) {
-		res.status(400).json({
+		res.status(500).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
@@ -460,7 +460,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 		});
 	} catch (error) {
 		console.error(error);
-		res.status(400).json({
+		res.status(500).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
@@ -505,7 +505,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 // };
 
 const createMerchantUser = async (merchantDoc) => {
-	console.log(merchantDoc);
+	
 	try {
 		const newVendor = new Vendor({
 			vendorId: merchantDoc.brandId,

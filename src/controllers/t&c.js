@@ -8,10 +8,10 @@ const getTermsAndConditions = async (req, res) => {
 		if (!terms) {
 			terms = new TermsAndConditions();
 		}
-		res.status(200).json(terms);
+		res.status(200).json({terms});
 	} catch (error) {
 		console.log(error);
-		res.status(500).json({ message: error.message });
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -25,9 +25,9 @@ const createTermsAndConditions = async (req, res) => {
 		}
 		const terms = new TermsAndConditions({ content });
 		const savedTerms = await terms.save();
-		res.status(201).json(savedTerms);
+		res.status(201).json({success: true, message:'Terms & Conditions is created', savedTerms});
 	} catch (error) {
-		res.status(400).json({ message: error.message });
+		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -36,9 +36,9 @@ const updateTermsAndConditions = async (req, res) => {
 	try {
 		const { content } = req.body;
 		const updatedTerms = await TermsAndConditions.findOneAndUpdate({}, { content }, { new: true });
-		res.status(200).json(updatedTerms);
+		res.status(200).json({success: true, message:'Terms & Conditions is being updated' , updatedTerms});
 	} catch (error) {
-		res.status(400).json({ message: error.message });
+		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
@@ -46,9 +46,9 @@ const updateTermsAndConditions = async (req, res) => {
 const deleteTermsAndConditions = async (req, res) => {
 	try {
 		await TermsAndConditions.deleteOne();
-		res.status(200).json({ message: 'Terms and conditions deleted successfully' });
+		res.status(200).json({ sucess: true , message: 'Terms and conditions deleted successfully' });
 	} catch (error) {
-		res.status(500).json({ message: error.message });
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
 };
 
