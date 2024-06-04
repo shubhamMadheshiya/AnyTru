@@ -81,5 +81,5 @@ ProductSchema.post('save', function(error, doc, next) {
         next(error);
     }
 });
-const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
+const Product = mongoose.model('Product', ProductSchema);
 module.exports = Product;
