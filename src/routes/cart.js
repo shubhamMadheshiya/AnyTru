@@ -58,7 +58,8 @@ router.post('/add', auth, async (req, res) => {
 
 		res.status(200).json({
 			success: true,
-			cartDoc: cart
+			message: 'Added to cart successfully',
+			// cartDoc: cart
 		});
 	} catch (error) {
 		console.error(error);
@@ -96,6 +97,30 @@ router.delete('/remove/:productId', auth, async (req, res) => {
 		await cart.save();
 
 		res.json({ success: true, message: 'Product removed from cart successfully', cart });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Get all cart items for a user
+router.get('/:userId', auth, async (req, res) => {
+	try {
+		const userId = req.params.userId;
+		const cart = await Cart.findOne({ user: userId })
+			.populate('products.product', '-imageKey -description -user -likes -createdAt -updatedAt -slug -link')
+			.populate('products.address', '-created')
+			.populate('products.vendor', '-merchantAddress -merchantDoc -websiteUrl -ads -rejAds -created -description');
+
+		if (!cart) {
+			return res.status(404).json({ error: 'Cart not found' });
+		}
+
+		res.status(200).json({
+			success: true,
+			products: cart.products,
+			overAllPrice: cart.overAllPrice
+		});
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: 'Internal server error' });
