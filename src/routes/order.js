@@ -15,63 +15,70 @@ const keys = require('../config/keys');
 const role = require('../middleware/role');
 const NotificationService = require('../services/notificationService');
 const { ROLES, ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS, ENDPOINT } = require('../constants');
+const razorpayInstance = require('../services/razorPay');
+const Ads = require('../models/Ads');
 
-const instance = new Razorpay({
-	key_id: keys.razorpay.accessKeyId,
-	key_secret: keys.razorpay.secretAccessKey
-});
+// Checkout single order route
+router.post('/checkoutSingle', auth, async (req, res) => {
+	const { adId, offerId } = req.body;
+	const userId = req.user._id;
 
-// Checkout route
-router.post('/checkout/:cartId', auth, async (req, res) => {
+	if (!adId || !offerId) {
+		return res.status(404).json({ error: ' please provide adId and offerId' });
+	}
 	try {
-		const cartId = req.params.cartId;
-		const userId = req.user._id;
+		const findOffer = await Ads.findOne({ _id: adId, user: userId, 'offers._id': offerId })
+			.populate('address')
+			.populate('product');
 
-		const cart = await Cart.findById(cartId).populate('products.address').populate('products.product');
-		if (!cart) {
-			return res.status(400).json({ error: 'Cart not found' });
+		// console.log(findOffer);
+		if (!findOffer) {
+			return res.status(404).json({ error: 'Ad not found' });
 		}
 
-		const user = await User.findById(userId);
-		if (!user) {
-			return res.status(400).json({ error: 'User not found' });
-		}
-
-		if (!cart.user.equals(userId)) {
-			return res.status(401).json({ error: 'Cart does not belong to you' });
-		}
+		acceptedOffer = findOffer.offers.find((offer) => (offer._id = offerId));
+		totalPrice = acceptedOffer.pricePerProduct * findOffer.quantity;
 
 		const options = {
-			amount: cart.overAllPrice * 100,
+			amount: totalPrice * 100,
 			currency: 'INR',
 			receipt: `receipt_${Date.now()}`,
 			payment_capture: 1
 		};
-		const order = await instance.orders.create(options);
+		const order = await razorpayInstance.orders.create(options);
 		if (!order) {
 			return res.status(400).json({ error: 'Order not found' });
 		}
+		// console.log(order);
 
 		const orderData = {
 			orderId: order.id,
-			user: user._id,
-			amount: order.amount,
-			status: ORDER_PAYMENT_STATUS.Created,
-			receipt: order.receipt,
-			products: cart.products
+			user: findOffer.user,
+			PaymentStatus: ORDER_PAYMENT_STATUS.Created,
+			product: findOffer.product,
+			quantity: findOffer.quantity,
+			vendor: acceptedOffer.vendor,
+			pricePerProduct: acceptedOffer.pricePerProduct,
+			totalAmount: order.amount/100,
+			remark: acceptedOffer.remark,
+			dispatchDay: acceptedOffer.dispatchDay,
+			address: findOffer.address,
+			receipt: order.receipt
 		};
 
 		const newOrder = new Order(orderData);
-
 		const orderDoc = await newOrder.save();
-		await Cart.deleteOne({ _id: cartId });
+		// await Cart.deleteOne({ _id: cartId });
 
-		await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
+		// // send vendor Notification
+		// //add ads acceptedOffer
+		// await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
 
 		res.status(200).json({
 			success: true,
 			message: 'Your order has been created successfully!',
-			orderDoc
+			orderDoc,
+			order
 		});
 	} catch (error) {
 		console.error(error);
@@ -80,14 +87,78 @@ router.post('/checkout/:cartId', auth, async (req, res) => {
 		});
 	}
 });
+
+// // Checkout route
+// router.post('/checkout/:cartId', auth, async (req, res) => {
+// 	try {
+// 		const cartId = req.params.cartId;
+// 		const userId = req.user._id;
+
+// 		const cart = await Cart.findById(cartId).populate('products.address').populate('products.product');
+// 		if (!cart) {
+// 			return res.status(400).json({ error: 'Cart not found' });
+// 		}
+
+// 		const user = await User.findById(userId);
+// 		if (!user) {
+// 			return res.status(400).json({ error: 'User not found' });
+// 		}
+
+// 		if (!cart.user.equals(userId)) {
+// 			return res.status(401).json({ error: 'Cart does not belong to you' });
+// 		}
+
+// 		const options = {
+// 			amount: cart.overAllPrice * 100,
+// 			currency: 'INR',
+// 			receipt: `receipt_${Date.now()}`,
+// 			payment_capture: 1
+// 		};
+// 		const order = await razorpayInstance.orders.create(options);
+// 		if (!order) {
+// 			return res.status(400).json({ error: 'Order not found' });
+// 		}
+
+// 		const orderData = {
+// 			orderId: order.id,
+// 			user: user._id,
+// 			amount: order.amount,
+// 			status: ORDER_PAYMENT_STATUS.Created,
+// 			receipt: order.receipt,
+// 			products: cart.products
+// 		};
+
+// 		const newOrder = new Order(orderData);
+
+// 		const orderDoc = await newOrder.save();
+// 		await Cart.deleteOne({ _id: cartId });
+
+// 		// send vendor Notification
+// 		//add ads acceptedOffer
+// 		await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
+
+// 		res.status(200).json({
+// 			success: true,
+// 			message: 'Your order has been created successfully!',
+// 			orderDoc
+// 		});
+// 	} catch (error) {
+// 		console.error(error);
+// 		res.status(400).json({
+// 			error: 'Your request could not be processed. Please try again.'
+// 		});
+// 	}
+// });
 // add get by user
 //vendor
 // Payment verification route
-router.post('/verificationPay', auth, async (req, res) => {
+router.post('/verificationPay', async (req, res) => {
 	try {
 		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-		const order = await Order.findOne({ orderId: razorpay_order_id }).populate('products.vendor','user');
+		console.log("verification")
+
+		const order = await Order.findOne({ orderId: razorpay_order_id }).populate('vendor', 'user');
 		if (!order) {
 			return res.status(404).json({ error: 'Order not found' });
 		}
@@ -102,21 +173,18 @@ router.post('/verificationPay', auth, async (req, res) => {
 			order.paymentSignature = razorpay_signature;
 			order.status = ORDER_PAYMENT_STATUS.Captured;
 
-		
-
-			order.products.map( async(singleOrder )=>{
-
-					const notificationData = {
-						userId: singleOrder.vendor.user, // review
-						title: singleOrder.product.name,
-						avatar: singleOrder.product.imageUrl,
-						message: `Your offer is accepted by ${order.user}`,
-						url: `${ENDPOINT.Order}${order.orderId}`
-					};
+			order.products.map(async (singleOrder) => {
+				const notificationData = {
+					userId: singleOrder.vendor.user, // review
+					title: singleOrder.product.name,
+					avatar: singleOrder.product.imageUrl,
+					message: `Your offer is accepted by ${order.user}`,
+					url: `${ENDPOINT.Order}${order.orderId}`
+				};
 				const notification = await NotificationService.createNotification(notificationData);
-			} )
-			
-
+			});
+			await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
+			// mail of vendor
 		} else {
 			order.status = ORDER_PAYMENT_STATUS.Failed;
 		}
@@ -131,7 +199,6 @@ router.post('/verificationPay', auth, async (req, res) => {
 	} catch (error) {
 		console.error('Error during payment verification:', error);
 		res.status(500).json({
-			
 			error: 'Internal Server Error'
 		});
 	}
@@ -169,7 +236,7 @@ router.post('/refund/:singleOrderId', auth, role.check(ROLES.Admin), async (req,
 			receipt: `receipt_${Date.now()}`
 		};
 
-		const razorpayResponse = await instance.payments.refund(options);
+		const razorpayResponse = await razorpayInstance.payments.refund(options);
 
 		findOrder.refundOrder.push(singleOrder._id);
 		findOrder.status = ORDER_PAYMENT_STATUS.Refunded;
@@ -207,7 +274,7 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 			return res.status(404).json({ error: `No order found with orderId ${search}` });
 		}
 
-		res.status(200).json({order});
+		res.status(200).json({ order });
 	} catch (error) {
 		console.error('Error fetching order:', error);
 		res.status(500).json({
@@ -503,14 +570,14 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 
 		await findOrder.save();
 
-			const notificationData = {
-				userId: findOrder.user, // review
-				title: singleOrder.product.name,
-				avatar: singleOrder.product.imageUrl,
-				message: `Your offer is being ${singleOrder.status}`,
-				url: `${ENDPOINT.Order}${findOrder.orderId}`
-			};
-			const notification = await NotificationService.createNotification(notificationData);
+		const notificationData = {
+			userId: findOrder.user, // review
+			title: singleOrder.product.name,
+			avatar: singleOrder.product.imageUrl,
+			message: `Your offer is being ${singleOrder.status}`,
+			url: `${ENDPOINT.Order}${findOrder.orderId}`
+		};
+		const notification = await NotificationService.createNotification(notificationData);
 
 		res.status(200).json({
 			success: true,

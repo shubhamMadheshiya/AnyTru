@@ -176,13 +176,34 @@ router.get('/list', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, r
 });
 ////````inActive not to merchant also show to user
 // Get a Specific Ad by ID
-router.get('/:adid', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, res) => {
+router.get('/:adid', auth, async (req, res) => {
+
+	const role = req.user.role;
+
+	let ad
+
 	try {
-		const ad = await Ads.findById(req.params.adid).populate('user').populate('address').populate('product');
+
+		if (role == ROLES.User ) {
+			ad = await Ads.findOne({_id:req.params.adid, user:req.user._id}).populate('user').populate('address').populate('product');
+			
+		};
+		 if (role == ROLES.Admin) {
+			ad = await Ads.findOne({_id:req.params.adid}).populate('user').populate('address').populate('product');
+			
+		}
+
+		if (role == ROLES.Merchant) {
+			ad = await Ads.findOne({ _id: req.params.adid, isActive: true }).populate('user').populate('address').populate('product');
+
+		}
+
+		
+	 
 		if (!ad) {
 			return res.status(404).json({ error: 'Ad not found' });
 		}
-		res.json(ad);
+		res.json({ad});
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: 'Internal server error' });
@@ -385,4 +406,50 @@ router.put('/:adId/active', auth, async (req, res) => {
 	}
 });
 
+
+// Get all accepted and rejected ads for a vendor
+router.get('/myVendorAds/status', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+		const vendorId = req.user.vendor;
+		const { status = 'accepted', page = 1, limit = 10 } = req.query;
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		let ads;
+		if (status === 'accepted') {
+			ads = vendor.ads;
+		} else if (status === 'rejected') {
+			ads = vendor.rejAds;
+		} else {
+			return res.status(400).json({ error: 'Invalid status' });
+		}
+
+		// Pagination
+		const totalAds = ads.length;
+		const startIndex = (page - 1) * limit;
+		const endIndex = page * limit;
+		const paginatedAds = ads.slice(startIndex, endIndex);
+
+		// Fetch detailed ad information for each ad ID in the paginated list
+		const adsDetails = await Ads.find({ _id: { $in: paginatedAds } })
+			.populate('user', '_id firstName userId isActive avatar role')
+			.populate('address', '_id city')
+			.populate('product', '_id sku name imageUrl description isActive category')
+			.exec();
+
+		res.json({
+			ads: adsDetails,
+			totalPages: Math.ceil(totalAds / limit),
+			currentPage: Number(page),
+			count: totalAds
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
 module.exports = router;
