@@ -27,9 +27,10 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 		return res.status(404).json({ error: ' please provide adId and offerId' });
 	}
 	try {
-		const findOffer = await Ads.findOne({ _id: adId, user: userId, 'offers._id': offerId })
+		const findOffer = await Ads.findOne({ _id: adId, user: userId, 'offers._id': offerId, isActive: true })
 			.populate('address')
-			.populate('product');
+			.populate('product')
+			.populate('user', '_id firstName lastName email userId phoneNumber');
 
 		// console.log(findOffer);
 		if (!findOffer) {
@@ -59,11 +60,12 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 			quantity: findOffer.quantity,
 			vendor: acceptedOffer.vendor,
 			pricePerProduct: acceptedOffer.pricePerProduct,
-			totalAmount: order.amount/100,
+			totalAmount: order.amount / 100,
 			remark: acceptedOffer.remark,
 			dispatchDay: acceptedOffer.dispatchDay,
 			address: findOffer.address,
-			receipt: order.receipt
+			receipt: order.receipt,
+			ad: findOffer._id
 		};
 
 		const newOrder = new Order(orderData);
@@ -156,8 +158,6 @@ router.post('/verificationPay', async (req, res) => {
 	try {
 		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-		console.log("verification")
-
 		const order = await Order.findOne({ orderId: razorpay_order_id }).populate('vendor', 'user');
 		if (!order) {
 			return res.status(404).json({ error: 'Order not found' });
@@ -171,29 +171,38 @@ router.post('/verificationPay', async (req, res) => {
 		if (isAuthentic) {
 			order.paymentId = razorpay_payment_id;
 			order.paymentSignature = razorpay_signature;
-			order.status = ORDER_PAYMENT_STATUS.Captured;
+			order.paymentStatus = ORDER_PAYMENT_STATUS.Captured;
 
-			order.products.map(async (singleOrder) => {
-				const notificationData = {
-					userId: singleOrder.vendor.user, // review
-					title: singleOrder.product.name,
-					avatar: singleOrder.product.imageUrl,
-					message: `Your offer is accepted by ${order.user}`,
-					url: `${ENDPOINT.Order}${order.orderId}`
-				};
-				const notification = await NotificationService.createNotification(notificationData);
-			});
-			await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
+			const notificationData = {
+				userId: order.vendor.user,
+				title: order.product.name,
+				avatar: order.user.avatar,
+				message: `Your offer is accepted by ${order.user}`,
+				url: `${ENDPOINT.Order}${order.orderId}`,
+				imgUrl: order.product.imageUrl
+			};
+			const notification = await NotificationService.createNotification(notificationData);
+
+			const acceptedOffer = {
+				vendor: order.vendor,
+				pricePerProduct: order.pricePerProduct,
+				dispatchDay: order.dispatchDay,
+				remark: order.remark
+			};
+			const updateAds = await Ads.findByIdAndUpdate(order.ad, { acceptedOffer, isActive: false }, { new: true });
+			// await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc); //mail to user
 			// mail of vendor
+			// deactivate ad
 		} else {
-			order.status = ORDER_PAYMENT_STATUS.Failed;
+			order.paymentStatus = ORDER_PAYMENT_STATUS.Failed;
 		}
 
 		await order.save();
+		console.log(order);
 
 		res.status(isAuthentic ? 200 : 400).json({
 			success: isAuthentic,
-			message: isAuthentic ? `Order status updated to ${order.status}` : 'Invalid signature',
+			message: isAuthentic ? `Order status updated to ${order.paymentStatus}` : 'Invalid signature',
 			order
 		});
 	} catch (error) {
@@ -203,56 +212,56 @@ router.post('/verificationPay', async (req, res) => {
 		});
 	}
 });
-
 // Payment refund route
-router.post('/refund/:singleOrderId', auth, role.check(ROLES.Admin), async (req, res) => {
-	try {
-		const singleOrderId = req.params.singleOrderId;
-		const paymentId = req.body.paymentId;
-		const findOrder = await Order.findOne({ 'products._id': singleOrderId, paymentId });
+router.post('/refund', auth, role.check(ROLES.Admin), async (req, res) => {
+    try {
+        const paymentId = req.body.paymentId;
+        const findOrder = await Order.findOne({ paymentId });
 
-		if (!findOrder) {
-			return res.status(404).json({ error: 'No single order found' });
-		}
+        if (!findOrder) {
+            return res.status(404).json({ error: 'No order found' });
+        }
 
-		if (!findOrder.status == ORDER_PAYMENT_STATUS.Captured) {
-			return res.status(403).json({ error: 'Yet user have not done Payment' });
-		}
+        if (findOrder.paymentStatus !== ORDER_PAYMENT_STATUS.Captured) {
+            return res.status(403).json({ error: `Payment not captured or status is ${findOrder.paymentStatus}` });
+        }
 
-		if (findOrder.refundOrder == singleOrderId) {
-			return res.status(403).json({ error: 'Already refunded' });
-		}
+        if (findOrder.orderStatus !== ORDER_ITEM_STATUS.Cancelled) {
+            return res.status(403).json({ error: `Order cannot be refunded because it is already ${findOrder.orderStatus}` });
+        }
 
-		const singleOrder = findOrder.products.find((product) => product._id.equals(singleOrderId));
-		if (!singleOrder) {
-			return res.status(404).json({ error: 'Product not found in the order' });
-		}
+        const amount = findOrder.totalAmount * 100; // amount in paise
 
-		const amount = singleOrder.totalPrice;
+        const options = {
+            payment_id: paymentId,
+            amount: amount,
+            receipt: `receipt_${Date.now()}`
+        };
 
-		const options = {
-			payment_id: paymentId,
-			amount: amount * 100,
-			receipt: `receipt_${Date.now()}`
-		};
+        const razorpayResponse = await razorpayInstance.payments.refund(options);
 
-		const razorpayResponse = await razorpayInstance.payments.refund(options);
+        if (!razorpayResponse) {
+            return res.status(400).json({ error: 'Refund request failed. Please check the payment ID and try again.' });
+        }
 
-		findOrder.refundOrder.push(singleOrder._id);
-		findOrder.status = ORDER_PAYMENT_STATUS.Refunded;
-		await findOrder.save();
+        findOrder.paymentStatus = ORDER_PAYMENT_STATUS.Refunded;
+        await findOrder.save();
 
-		res.status(201).json({
-			message: 'Refund initiated',
-			razorpayResponse
-		});
-	} catch (error) {
-		console.error('Error during refund:', error);
-		res.status(400).json({
-			error: 'Unable to issue a refund. Please try again.'
-		});
-	}
+        res.status(201).json({
+            message: 'Refund initiated successfully',
+            razorpayResponse
+        });
+    } catch (error) {
+        console.error('Error during refund:', error);
+        if (error.statusCode) {
+            res.status(error.statusCode).json({ error: error.message || 'Error during refund process' });
+        } else {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 });
+
+
 
 // Search orders API
 router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
@@ -496,20 +505,20 @@ router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) =>
 			return res.status(404).json({ error: 'No single order found' });
 		}
 
-		if (singleOrder.status == ORDER_ITEM_STATUS.Processing) {
+		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Processing) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Processing}` });
 		}
-		if (singleOrder.status == ORDER_ITEM_STATUS.Shipped) {
+		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Shipped) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Shipped}` });
 		}
-		if (singleOrder.status == ORDER_ITEM_STATUS.Delivered) {
+		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Delivered) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Delivered}` });
 		}
-		if (singleOrder.status == ORDER_ITEM_STATUS.Cancelled) {
+		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Cancelled) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Cancelled}` });
 		}
 
-		singleOrder.status = ORDER_ITEM_STATUS.Cancelled;
+		singleOrder.orderStatus = ORDER_ITEM_STATUS.Cancelled;
 
 		const updatedOrder = await findOrder.save();
 
@@ -529,7 +538,7 @@ router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) =>
 // Update status of a single order item
 router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
 	try {
-		const { orderId, singleOrderId, status } = req.body;
+		const { orderId, singleOrderId, orderStatus } = req.body;
 		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
 
 		if (!findOrder) {
@@ -542,7 +551,7 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 			return res.status(404).json({ error: 'No single order item found' });
 		}
 
-		if (!Object.values(ORDER_ITEM_STATUS).includes(status)) {
+		if (!Object.values(ORDER_ITEM_STATUS).includes(orderStatus)) {
 			return res.status(400).json({ error: `Invalid status: ${status}. Please select a valid status.` });
 		}
 

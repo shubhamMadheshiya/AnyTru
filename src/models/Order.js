@@ -74,7 +74,7 @@ const OrderSchema = new mongoose.Schema(
 		
 		
 		// address: { type: Object, required: true },
-		PaymentStatus: {
+		paymentStatus: {
 			type: String,
 			default: ORDER_PAYMENT_STATUS.Pending,
 			enum: [
@@ -130,6 +130,10 @@ const OrderSchema = new mongoose.Schema(
 		},
 		receipt: {
 			type: String
+		},
+		ad:{
+			type: mongoose.Schema.Types.ObjectId,
+			ref:'Ads'
 		}
 	},
 	{ timestamps: true }
