@@ -544,9 +544,9 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 
 		let findOrder;
 		if (req.user.role === ROLES.Admin) {
-			findOrder = await Order.findOne({ _id: orderId });
+			findOrder = await Order.findOne({  orderId });
 		} else {
-			findOrder = await Order.findOne({ _id: orderId, vendor: req.user.vendor });
+			findOrder = await Order.findOne({  orderId, vendor: req.user.vendor });
 		}
 
 		if (!findOrder) {
