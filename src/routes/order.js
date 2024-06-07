@@ -176,10 +176,10 @@ router.post('/verificationPay', async (req, res) => {
 			const notificationData = {
 				userId: order.vendor.user,
 				title: order.product.name,
-				avatar: order.user.avatar,
+				avatar: order.user.avatar || '',
 				message: `Your offer is accepted by ${order.user}`,
 				url: `${ENDPOINT.Order}${order.orderId}`,
-				imgUrl: order.product.imageUrl
+				imgUrl: order.product.imageUrl || ''
 			};
 			const notification = await NotificationService.createNotification(notificationData);
 
@@ -272,12 +272,10 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 			return res.status(400).json({ error: 'Search query is required.' });
 		}
 
-		const order = await Order.findOne(
-			{ orderId: search.toString() },
-			{ refundOrder: 0, _id: 0, receipt: 0, paymentSignature: 0, paymentId: 0 }
-		)
+		const order = await Order.findOne({ orderId: search.toString() }, { _id: 0, receipt: 0, paymentSignature: 0, paymentId: 0 })
 			.sort('-createdAt')
-			.populate({ path: 'user', select: 'name email avatar _id' });
+			.populate({ path: 'user', select: 'name email avatar _id' })
+			.populate({ path: 'vendor', select: 'user rating vendorId isActive', populate: { path: 'user', select: 'avatar userId' } });
 
 		if (!order) {
 			return res.status(404).json({ error: `No order found with orderId ${search}` });
@@ -294,49 +292,48 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 
 // fetch orders api vendor
 router.get('/vendor/:vendorId', auth, async (req, res) => {
-	const vendorId = req.params.vendorId;
-	try {
-		const { page = 1, limit = 10 } = req.query;
-		const ordersDoc = await Order.find()
-			.sort('-createdAt')
-			.populate({
-				path: 'products',
-				match: { vendor: vendorId },
-				populate: {
-					path: 'vendor',
-					select: '_id name , email',
-					populate: {
-						path: 'user',
-						select: 'email avatar'
-					}
-				}
-			})
-			.populate({ path: 'user', select: 'name email avatar _id' })
-			.limit(limit * 1)
-			.skip((page - 1) * limit)
-			.exec();
+    const vendorId = req.params.vendorId;
+    try {
+        const { page = 1, limit = 10, orderStatus } = req.query;
+        
+        // Create a query object
+        const query = {
+            vendor: vendorId,
+            paymentStatus: { $in: [ORDER_PAYMENT_STATUS.Refunded, ORDER_PAYMENT_STATUS.Captured] }
+        };
 
-		const count = await Order.countDocuments();
-		// const orders = store.formatOrders(ordersDoc);
+        // Add orderStatus to the query if provided
+        if (orderStatus) {
+            query.orderStatus = orderStatus;
+        }
 
-		if (!ordersDoc) {
-			return res.status(404).json({ error: 'No any order found' });
-		}
+        const ordersDoc = await Order.find(query)
+            .sort({ orderStatus: 1, createdAt: -1 }) // Sort by orderStatus and then by createdAt
+            .populate({ path: 'user', select: 'phoneNumber name lastName email userId avatar accountType isActive _id' })
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .exec();
 
-		res.status(200).json({
-			// orders,
-			ordersDoc,
-			totalPages: Math.ceil(count / limit),
-			currentPage: Number(page),
-			count
-		});
-	} catch (error) {
-		console.log(error);
-		res.status(400).json({
-			error: 'Your request could not be processed. Please try again.'
-		});
-	}
+        const count = await Order.countDocuments(query);
+
+        if (!ordersDoc.length) {
+            return res.status(404).json({ error: 'No orders found' });
+        }
+
+        res.status(200).json({
+            ordersDoc,
+            totalPages: Math.ceil(count / limit),
+            currentPage: Number(page),
+            count
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({
+            error: 'Your request could not be processed. Please try again.'
+        });
+    }
 });
+
 
 // fetch orders api
 router.get('/user/:userId', auth, async (req, res) => {
@@ -346,17 +343,14 @@ router.get('/user/:userId', auth, async (req, res) => {
 		const ordersDoc = await Order.find({ user: userId })
 			.sort('-createdAt')
 			.populate({
-				path: 'products',
+				path: 'vendor',
 				populate: {
-					path: 'vendor',
-					select: '_id name , email',
-					populate: {
-						path: 'user',
-						select: 'email avatar'
-					}
-				}
+					path: 'user',
+					select: 'userId avatar accountType isActive _id',
+				
+				},
+				select:'merchantAddress _id vendorId rating description isActive'
 			})
-			.populate({ path: 'user', select: 'name email avatar _id' })
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
 			.exec();
@@ -386,30 +380,45 @@ router.get('/user/:userId', auth, async (req, res) => {
 // fetch orders api by admin
 router.get('/', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
-		const { page = 1, limit = 10 } = req.query;
-		const ordersDoc = await Order.find()
-			.sort('-createdAt')
+		const { page = 1, limit = 10, orderStatus, paymentStatus, totalAmount } = req.query;
+
+		// Create a query object
+		const query = {};
+
+		// Add orderStatus to the query if provided
+		if (orderStatus) {
+			query.orderStatus = orderStatus;
+		}
+
+		// Add paymentStatus to the query if provided
+		if (paymentStatus) {
+			query.paymentStatus = paymentStatus;
+		}
+
+		// Determine sort order for totalAmount
+		let sortOptions = { createdAt: -1 }; // Default sort by createdAt descending
+		if (totalAmount) {
+			sortOptions = { totalAmount: totalAmount === 'asc' ? 1 : -1 };
+		}
+
+		const ordersDoc = await Order.find(query)
+			.sort(sortOptions)
 			.populate({
-				path: 'products',
+				path: 'vendor',
 				populate: {
-					path: 'vendor',
-					select: '_id name , email',
-					populate: {
-						path: 'user',
-						select: 'email avatar'
-					}
-				}
+					path: 'user',
+					select: 'userId avatar accountType isActive _id'
+				},
+				select: 'merchantAddress _id vendorId rating description isActive'
 			})
-			.populate({ path: 'user', select: 'name email avatar _id' })
+			.populate({ path: 'user', select: 'phoneNumber name lastName email userId avatar accountType isActive _id' })
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
 			.exec();
 
-		const count = await Order.countDocuments();
-		// const orders = store.formatOrders(ordersDoc);
+		const count = await Order.countDocuments(query);
 
 		res.status(200).json({
-			// orders,
 			ordersDoc,
 			totalPages: Math.ceil(count / limit),
 			currentPage: Number(page),
@@ -423,6 +432,7 @@ router.get('/', auth, role.check(ROLES.Admin), async (req, res) => {
 	}
 });
 
+
 // fetch order api by orderId
 router.get('/:orderId', auth, async (req, res) => {
 	try {
@@ -430,36 +440,16 @@ router.get('/:orderId', auth, async (req, res) => {
 
 		let orderDoc = null;
 
-		if (req.user.role === ROLES.Admin) {
 			orderDoc = await Order.findOne({ orderId: orderId.toString() })
 				.populate({
-					path: 'products',
+					path: 'vendor',
 					populate: {
-						path: 'vendor',
-						select: '_id name , email',
-						populate: {
-							path: 'user',
-							select: 'email avatar'
-						}
+						path: 'user',
+						
 					}
 				})
-				.populate({ path: 'user', select: 'name email avatar _id' });
-		} else {
-			const user = req.user._id;
-			orderDoc = await Order.findOne({ orderId, user })
-				.populate({
-					path: 'products',
-					populate: {
-						path: 'vendor',
-						select: '_id name , email',
-						populate: {
-							path: 'user',
-							select: 'email avatar'
-						}
-					}
-				})
-				.populate({ path: 'user', select: 'name email avatar _id' });
-		}
+				.populate({ path: 'user' });
+	
 
 		if (!orderDoc) {
 			return res.status(404).json({
@@ -489,36 +479,48 @@ router.get('/:orderId', auth, async (req, res) => {
 });
 
 // Cancel single order item API
-router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) => {
-	const { orderId, singleOrderId } = req.body;
+router.delete('/cancel/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
+	const { orderId } = req.body;
 
+	let findOrder
+
+	console.log(req.user)
 	try {
-		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
+		if (req.user.role == ROLES.Admin) {
+			findOrder = await Order.findOne({ orderId: orderId });
+			
+		}else{
+			findOrder = await Order.findOne({ orderId: orderId, vendor : req.user.vendor});
+
+		}
+
+		
+		
 
 		if (!findOrder) {
 			return res.status(404).json({ error: 'No single order found' });
 		}
 
-		const singleOrder = findOrder.products.find((singleOrder) => singleOrder._id == singleOrderId);
+		
 
-		if (!singleOrder) {
-			return res.status(404).json({ error: 'No single order found' });
+		if (!findOrder) {
+			return res.status(404).json({ error: 'No single order found'});
 		}
 
-		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Processing) {
+		if (findOrder.orderStatus == ORDER_ITEM_STATUS.Processing) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Processing}` });
 		}
-		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Shipped) {
+		if (findOrder.orderStatus == ORDER_ITEM_STATUS.Shipped) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Shipped}` });
 		}
-		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Delivered) {
+		if (findOrder.orderStatus == ORDER_ITEM_STATUS.Delivered) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Delivered}` });
 		}
-		if (singleOrder.orderStatus == ORDER_ITEM_STATUS.Cancelled) {
+		if (findOrder.orderStatus == ORDER_ITEM_STATUS.Cancelled) {
 			return res.status(403).json({ error: `Order is already ${ORDER_ITEM_STATUS.Cancelled}` });
 		}
 
-		singleOrder.orderStatus = ORDER_ITEM_STATUS.Cancelled;
+		findOrder.orderStatus = ORDER_ITEM_STATUS.Cancelled;
 
 		const updatedOrder = await findOrder.save();
 
@@ -538,25 +540,24 @@ router.delete('/cancel/item', auth, role.check(ROLES.Admin), async (req, res) =>
 // Update status of a single order item
 router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
 	try {
-		const { orderId, singleOrderId, orderStatus } = req.body;
-		const findOrder = await Order.findOne({ 'products._id': singleOrderId, orderId });
+		const { orderId, orderStatus } = req.body;
+
+		let findOrder;
+		if (req.user.role === ROLES.Admin) {
+			findOrder = await Order.findOne({ _id: orderId });
+		} else {
+			findOrder = await Order.findOne({ _id: orderId, vendor: req.user.vendor });
+		}
 
 		if (!findOrder) {
 			return res.status(404).json({ error: 'No order found' });
 		}
 
-		const singleOrder = findOrder.products.id(singleOrderId);
-
-		if (!singleOrder) {
-			return res.status(404).json({ error: 'No single order item found' });
-		}
-
 		if (!Object.values(ORDER_ITEM_STATUS).includes(orderStatus)) {
-			return res.status(400).json({ error: `Invalid status: ${status}. Please select a valid status.` });
+			return res.status(400).json({ error: `Invalid status: ${orderStatus}. Please select a valid status.` });
 		}
 
-		// Validate the new status transition
-		const currentStatus = singleOrder.status;
+		const currentStatus = findOrder.orderStatus;
 		if (currentStatus === ORDER_ITEM_STATUS.Cancelled) {
 			return res.status(403).json({ error: 'Cannot update status of a cancelled order.' });
 		}
@@ -569,24 +570,23 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 			[ORDER_ITEM_STATUS.Cancelled]: []
 		};
 
-		if (!validStatusTransitions[currentStatus].includes(status)) {
+		if (!validStatusTransitions[currentStatus].includes(orderStatus)) {
 			return res.status(403).json({
-				error: `Invalid status transition from ${currentStatus} to ${status}.`
+				error: `Invalid status transition from ${currentStatus} to ${orderStatus}.`
 			});
 		}
 
-		singleOrder.status = status;
-
+		findOrder.orderStatus = orderStatus;
 		await findOrder.save();
 
 		const notificationData = {
-			userId: findOrder.user, // review
-			title: singleOrder.product.name,
-			avatar: singleOrder.product.imageUrl,
-			message: `Your offer is being ${singleOrder.status}`,
-			url: `${ENDPOINT.Order}${findOrder.orderId}`
+			userId: findOrder.user,
+			title: 'Order Status Update',
+			message: `Your order status has been updated to ${findOrder.orderStatus}`,
+			url: `${process.env.ENDPOINT}/order/${findOrder._id}`,
+			imgUrl: findOrder.product.imageUrl || '' // Ensure there is a default if no imageUrl exists
 		};
-		const notification = await NotificationService.createNotification(notificationData);
+		await NotificationService.createNotification(notificationData);
 
 		res.status(200).json({
 			success: true,

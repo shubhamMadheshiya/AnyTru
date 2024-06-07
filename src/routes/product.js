@@ -349,7 +349,7 @@ router.put('/:id/active', auth, async (req, res) => {
 			// avatar: productDoc.imageUrl,
 			message: `Your Product is now Active`,
 			url: `${ENDPOINT.Product}${productDoc._id}`,
-			imgUrl: productDoc.imageUrl
+			imgUrl: productDoc.imageUrl || ''
 		};
 		const notification = await NotificationService.createNotification(notificationData);
 		
@@ -413,10 +413,10 @@ router.put('/like/:productId', auth, async (req, res) => {
 			const notificationData = {
 				userId: product.user,
 				title: findUser.userId,
-				avatar: findUser.avatar,
+				avatar: findUser.avatar || '',
 				message: `liked your post`,
 				url: `${ENDPOINT.Product}${product._id}`,
-				imgUrl: product.imageUrl
+				imgUrl: product.imageUrl || ''
 			};
 			console.log(notificationData)
 			const notification = await NotificationService.createNotification(notificationData);

@@ -337,7 +337,7 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		const notificationData = {
 			userId: merchantDoc.user._id,
 			title: merchantDoc.brandId,
-			avatar: merchantDoc.user.avatar,
+			avatar: merchantDoc.user.avatar || '',
 			message: `Sorry, your profile has not been approved as a Vendor.`,
 			url: `${ENDPOINT.UserProfile}${merchantDoc.user._id}`
 			// imgUrl: productDoc.imageUrl

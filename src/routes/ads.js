@@ -10,7 +10,6 @@ const role = require('../middleware/role');
 const Vendor = require('../models/Vendor');
 const NotificationService = require('../services/notificationService');
 
-
 // Create an Ad
 router.post('/add/:productId', auth, async (req, res) => {
 	try {
@@ -34,12 +33,11 @@ router.post('/add/:productId', auth, async (req, res) => {
 			address = await Address.findOne({ user: userId, isDefault: true });
 		} else {
 			findAddress = await Address.findById(addressId);
-			
-			if(!findAddress){
-				 return res.status(404).json({ error: 'Address not found' });
 
+			if (!findAddress) {
+				return res.status(404).json({ error: 'Address not found' });
 			}
-			
+
 			address = findAddress;
 		}
 
@@ -177,33 +175,29 @@ router.get('/list', auth, role.check(ROLES.Merchant, ROLES.Admin), async (req, r
 ////````inActive not to merchant also show to user
 // Get a Specific Ad by ID
 router.get('/:adid', auth, async (req, res) => {
-
 	const role = req.user.role;
 
-	let ad
+	let ad;
 
 	try {
-
-		if (role == ROLES.User ) {
-			ad = await Ads.findOne({_id:req.params.adid, user:req.user._id}).populate('user').populate('address').populate('product');
-			
-		};
-		 if (role == ROLES.Admin) {
-			ad = await Ads.findOne({_id:req.params.adid}).populate('user').populate('address').populate('product');
-			
+		if (role == ROLES.User) {
+			ad = await Ads.findOne({ _id: req.params.adid, user: req.user._id })
+				.populate('user')
+				.populate('address')
+				.populate('product');
+		}
+		if (role == ROLES.Admin) {
+			ad = await Ads.findOne({ _id: req.params.adid }).populate('user').populate('address').populate('product');
 		}
 
 		if (role == ROLES.Merchant) {
 			ad = await Ads.findOne({ _id: req.params.adid, isActive: true }).populate('user').populate('address').populate('product');
-
 		}
 
-		
-	 
 		if (!ad) {
 			return res.status(404).json({ error: 'Ad not found' });
 		}
-		res.json({ad});
+		res.json({ ad });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: 'Internal server error' });
@@ -212,7 +206,6 @@ router.get('/:adid', auth, async (req, res) => {
 
 // Update an Ad
 router.put('/:adId', auth, async (req, res) => {
-	
 	try {
 		const ad = await Ads.findByIdAndUpdate(req.params.adId, req.body, { new: true });
 		if (!ad) {
@@ -250,7 +243,7 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 		const vendorId = req.user.vendor;
 
 		// Check if the ad exists
-		const ad = await Ads.findById(adId);
+		const ad = await Ads.findById(adId).populate('product', 'imageUrl');
 		if (!ad) {
 			return res.status(404).json({ error: 'Ad not found' });
 		}
@@ -285,9 +278,10 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 		const notificationData = {
 			userId: adDoc.user,
 			title: vendor.user.firstName,
-			avatar: vendor.user.avatar,
+			avatar: vendor.user.avatar || '',
 			message: `accept your ad at ptice ₹${pricePerProduct} per Product`,
-			url: `${ENDPOINT.UserProfile}${vendor.user._id}`
+			url: `${ENDPOINT.UserProfile}${vendor.user._id}`,
+			imgUrl: ad.product.imageUrl || ''
 		};
 		const notification = await NotificationService.createNotification(notificationData);
 
@@ -300,43 +294,42 @@ router.post('/:adId/accept', auth, role.check(ROLES.Merchant), async (req, res) 
 
 // cancel ads by vendor
 router.put('/:adId/cancel', auth, role.check(ROLES.Merchant), async (req, res) => {
-    try {
-        const adId = req.params.adId;
-        const vendorId = req.user.vendor;
+	try {
+		const adId = req.params.adId;
+		const vendorId = req.user.vendor;
 
-        // Check if the ad exists
-        const ad = await Ads.findById(adId);
-        if (!ad) {
-            return res.status(404).json({ error: 'Ad not found' });
-        }
+		// Check if the ad exists
+		const ad = await Ads.findById(adId);
+		if (!ad) {
+			return res.status(404).json({ error: 'Ad not found' });
+		}
 
-        // Check if the vendor exists
-        const vendor = await Vendor.findById(vendorId);
-        if (!vendor) {
-            return res.status(404).json({ error: 'Vendor not found' });
-        }
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
 
-        // Check if the vendor has already accepted the ad
-        const offerIndex = ad.offers.findIndex(offer => offer.vendor.toString() === vendorId.toString());
-        if (offerIndex === -1) {
-            return res.status(400).json({ error: 'Vendor yet not accept the ad' });
-        }
+		// Check if the vendor has already accepted the ad
+		const offerIndex = ad.offers.findIndex((offer) => offer.vendor.toString() === vendorId.toString());
+		if (offerIndex === -1) {
+			return res.status(400).json({ error: 'Vendor yet not accept the ad' });
+		}
 
-        // Remove the offer from the ad's offers array
-        ad.offers.splice(offerIndex, 1);
-        vendor.ads.pull(adId);
+		// Remove the offer from the ad's offers array
+		ad.offers.splice(offerIndex, 1);
+		vendor.ads.pull(adId);
 
-        // Save the updated ad and vendor documents
-        const adDoc = await ad.save();
-        await vendor.save();
+		// Save the updated ad and vendor documents
+		const adDoc = await ad.save();
+		await vendor.save();
 
-        res.json({ success: true, message: 'Successfully cancelled ad' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+		res.json({ success: true, message: 'Successfully cancelled ad' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
 });
-
 
 // reject ads by vendor
 router.post('/:adId/reject', auth, role.check(ROLES.Merchant), async (req, res) => {
@@ -405,7 +398,6 @@ router.put('/:adId/active', auth, async (req, res) => {
 		res.status(500).json({ error: 'Internal server error' });
 	}
 });
-
 
 // Get all accepted and rejected ads for a vendor
 router.get('/myVendorAds/status', auth, role.check(ROLES.Merchant), async (req, res) => {
