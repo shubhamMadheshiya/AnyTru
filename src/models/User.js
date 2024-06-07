@@ -3,10 +3,7 @@ const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
 const wishlist = require('./wishlist');
 
 const userSchema = new mongoose.Schema({
-	phoneNumber: {
-		type: String,
-		trim: true
-	},
+	
 	firstName: {
 		type: String,
 		required: true,
