@@ -150,7 +150,7 @@ exports.followUser = async (req, res) => {
 		const notificationData = {
 			userId: userToFollow._id,
 			title: user.firstName,
-			avatar: user.avatar,
+			avatar: user.avatar || '',
 			message: `Started following you`,
 			url: `${ENDPOINT.UserProfile}${user._id}`
 		};
