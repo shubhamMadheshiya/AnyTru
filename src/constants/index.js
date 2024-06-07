@@ -9,7 +9,7 @@ exports.CATEGORIES = {
 	Furniture: 'Furniture',
 	Clothing: 'Clothing',
 	PrintsGraphics: 'Prints & Graphics',
-	HomeDecor: 'Home Decor ',
+	HomeDecor: 'Home_Decor ',
 	Jewellery: 'Jewellery',
 	EventSetups: 'Event Setups',
 	Accessories: 'Accessories',
@@ -29,7 +29,7 @@ exports.ORDER_ITEM_STATUS = {
 	Shipped: 'Shipped',
 	Delivered: 'Delivered',
 	Cancelled: 'Cancelled',
-	Not_processed: 'Not processed'
+	Not_processed: 'Not_Processed'
 };
 exports.ORDER_PAYMENT_STATUS = {
 	Created: 'created',
@@ -43,7 +43,7 @@ exports.ORDER_PAYMENT_STATUS = {
 exports.REVIEW_STATUS = {
 	Rejected: 'Rejected',
 	Approved: 'Approved',
-	Waiting_Approval: 'Waiting Approval'
+	Waiting_Approval: 'Waiting_Approval'
 };
 
 exports.EMAIL_PROVIDER = {
