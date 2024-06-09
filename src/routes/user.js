@@ -99,7 +99,7 @@ router.get('/vendor/status', auth, async (req, res) => {
 		if (!findVendorReq) {
 			return res.status(400).json({ error: 'No request found' });
 		}
-		return res.status(200).json({findVendorReq});
+		return res.status(200).json({ findVendorReq });
 	} catch (error) {
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
@@ -141,30 +141,45 @@ router.get('/:userId', auth, userController.getUserById);
 
 // UPDATE USER
 router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
-	
 	try {
 		const { firstName, lastName, phoneNumber, bio, userId } = req.body;
 		const avatar = req.file;
 
-		const data = {
+		let data = {
 			firstName,
 			lastName,
 			phoneNumber,
-			bio,
-			userId
+			bio
 		};
 
-		// Check if the userId is unique
-		const existingUser = await User.findOne({ userId });
-		if (existingUser && userId !== undefined) {
-			return res.status(400).json({ error: 'userId is already in use by another user' });
+		if (userId && userId.length !== 0) {
+			const existingUser = await User.findOne({ userId });
+			if (existingUser) {
+				return res.status(400).json({ error: 'userId is already in use by another user' });
+			}
+			data.userId = userId;
 		}
-		
+		if (firstName && firstName.length !== 0) {
+			data.firstName = firstName;
+		}
+		if (lastName && lastName.length !== 0) {
+			data.lastName = lastName;
+		}
+		if (phoneNumber && phoneNumber.length !== 0 && phoneNumber.length < 11) {
+			data.phoneNumber = phoneNumber;
+		}
+
+
+		// Check if the userId is unique
+		// const existingUser = await User.findOne({ userId });
+		// if (existingUser && userId !== undefined) {
+		// 	return res.status(400).json({ error: 'userId is already in use by another user' });
+		// }
 
 		// Update the user
 		const updatedUser = await User.findOneAndUpdate({ _id: req.params.userId }, data, { new: true });
 		if (!updatedUser) {
-			return res.status(404).json({ error : 'User not found' });
+			return res.status(404).json({ error: 'User not found' });
 		}
 
 		// Handle avatar upload if present
@@ -177,7 +192,7 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 			updatedUser.avatarKey = imageKey;
 			updatedUser.save();
 		}
-		res.status(200).json({success: true, message:"Updated Successfully"});
+		res.status(200).json({ success: true, message: 'Updated Successfully' });
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
@@ -191,26 +206,24 @@ router.delete('/:userId', auth, async (req, res) => {
 		if (ADMIN_EMAILS.includes(findUser.email)) {
 			return res.status(403).json({ error: 'You can delete Prime Adimin' });
 		}
-			if (findUser.avatarKey) {
-				const deleteImg = await s3Delete([findUser.avatarKey]);
-			}
+		if (findUser.avatarKey) {
+			const deleteImg = await s3Delete([findUser.avatarKey]);
+		}
 		const deletedUser = await User.findOneAndDelete({ _id: req.params.userId });
 		if (!deletedUser) {
 			return res.status(404).json({ message: 'User not found' });
 		}
-		res.status(200).json({ success: true ,message: 'User deleted successfully' });
+		res.status(200).json({ success: true, message: 'User deleted successfully' });
 	} catch (error) {
-		res.status(500).json({ error: "Your request could not be processed. Please try again." });
+		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
 	}
-}
-);
+});
 
 // POST request to follow a user
 router.post('/:userId/follow', auth, userController.followUser);
 
 // POST request to unfollow a user
 router.post('/:userId/unfollow', auth, userController.unfollowUser);
-
 
 // POST request to switch account type
 router.post('/switch-account', userController.switchAccountType);
