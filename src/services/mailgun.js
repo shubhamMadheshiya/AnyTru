@@ -23,7 +23,8 @@ const mailgun = new MailgunService().init();
 exports.sendEmail = async (email, type, host, data) => {
 	try {
 		const message = prepareTemplate(type, host, data);
-		console.log('email', email);
+		// console.log(data)
+		// console.log(message)
 
 		const config = {
 			from: `AnyTru! <${sender}>`,
@@ -39,6 +40,7 @@ exports.sendEmail = async (email, type, host, data) => {
 };
 
 const prepareTemplate = (type, host, data) => {
+	console.log('ssssssssssssssssssssss')
 	let message;
 
 	switch (type) {
@@ -59,11 +61,11 @@ const prepareTemplate = (type, host, data) => {
 			break;
 
 		case 'merchant-welcome':
-			message = template.merchantWelcome(data,sender);
+			message = template.merchantWelcome(data, sender);
 			break;
-      case 'merchant-approve':
-        message = template.merchantRegistration(data, sender);
-        break;
+		case 'merchant-approve':
+			message = template.merchantRegistration(data, sender);
+			break;
 
 		case 'merchant-reject':
 			message = template.merchantReject(data, sender);
@@ -87,6 +89,10 @@ const prepareTemplate = (type, host, data) => {
 
 		case 'order-confirmation':
 			message = template.orderConfirmationEmail(data);
+			break;
+
+		case 'order-confirmation-vendor':
+			message = template.orderConfirmationVendorEmail(data);
 			break;
 
 		default:
