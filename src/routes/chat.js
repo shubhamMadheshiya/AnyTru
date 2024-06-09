@@ -7,53 +7,60 @@ const auth = require('../middleware/auth');
 const Order = require('../models/Order');
 const { ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS } = require('../constants');
 
-// Create a new chat 
-router.post('/singleOrderId', auth, async (req, res) => {
+// Create a new chat or get chat of created user
+router.post('/:orderId', auth, async (req, res) => {
+	const orderId = req.params.orderId;
+	const findOrder = await Order.findOne({
+		orderId,
+		paymentStatus: ORDER_PAYMENT_STATUS.Captured,
+		user: req.user
+		// products: { $elemMatch: { _id: singleOrderId, status: ORDER_ITEM_STATUS.Processing } }
+	}).populate('vendor');
+console.log(findOrder)
+	if (!findOrder) {
+		return res.status(404).json({ error: 'Order not found' });
+	}
 
-    const singleOrderId = req.params.singleOrderId;
-    const findOrder = await Order.findOne({
-			products: { $elemMatch: { _id: singleOrderId, status: ORDER_ITEM_STATUS.Processing } }
-		});
-		console.log(findOrder)
+	const findChat = await Chat.findOne({orderId})
 
-	// if(!findOrder){
-	// 	res.status(404).json({error:'Order not found'})
-	// }
-	// const { chatName, users, order } = req.body;
+	if (!findChat) {
+			try {
+				const newChat = new Chat({
+					orderId
+				});
+				newChat.users.push(findOrder.user, findOrder.vendor.user);
 
-	// if (!users || users.length === 0) {
-	// 	return res.status(400).send({ message: 'Users are required to create a chat' });
-	// }
+				const savedChat = await newChat.save();
+				res.status(201).json({ chat: savedChat });
+			} catch (error) {
+				res.status(500).send({ error: 'Error creating chat' });
+			}
+		
+	}else{
+		res.status(200).json({chat:findChat})
 
-	// try {
-	// 	const newChat = new Chat({
-	// 		chatName,
-	// 		users,
-	// 		order
-	// 	});
+	}
 
-	// 	const savedChat = await newChat.save();
-	// 	res.status(201).json(savedChat);
-	// } catch (error) {
-	// 	res.status(500).send({ message: 'Error creating chat', error: error.message });
-	// }
+
 });
 
 // Fetch chats for a user
 router.get('/', auth, async (req, res) => {
+	
 	try {
-		const userId = req.user._id;
-		const chats = await Chat.find({ users: userId })
-			.populate('users', '-password') // Populate users but exclude password field
+		const user = req.user;
+		const chats = await Chat.find({ users: user })
+			.populate('users', '_id firstName lastName email userId role accountType isActive avatar phoneNumber') // Populate users but exclude password field
 			.populate('latestMessage')
 			.populate({
 				path: 'latestMessage',
 				populate: {
 					path: 'sender',
-					select: 'name email'
-				}
-			})
-			.populate('order');
+					select: 'firstName lastName userId avatar'
+				},
+				select: 'sender content read createdAt'
+			});
+			
 
 		res.status(200).json(chats);
 	} catch (error) {
@@ -61,40 +68,40 @@ router.get('/', auth, async (req, res) => {
 	}
 });
 
-// Update chat (e.g., change chat name, add/remove users)
-router.put('/:chatId', auth, async (req, res) => {
-	const { chatId } = req.params;
-	const { chatName, users, latestMessage } = req.body;
+// // Update chat (e.g., change chat name, add/remove users)
+// router.put('/:chatId', auth, async (req, res) => {
+// 	const { chatId } = req.params;
+// 	const { chatName, users, latestMessage } = req.body;
 
-	try {
-		const updatedChat = await Chat.findByIdAndUpdate(
-			chatId,
-			{
-				chatName,
-				users,
-				latestMessage
-			},
-			{ new: true }
-		)
-			.populate('users', '-password')
-			.populate('latestMessage')
-			.populate({
-				path: 'latestMessage',
-				populate: {
-					path: 'sender',
-					select: 'name email'
-				}
-			})
-			.populate('order');
+// 	try {
+// 		const updatedChat = await Chat.findByIdAndUpdate(
+// 			chatId,
+// 			{
+// 				chatName,
+// 				users,
+// 				latestMessage
+// 			},
+// 			{ new: true }
+// 		)
+// 			.populate('users', '-password')
+// 			.populate('latestMessage')
+// 			.populate({
+// 				path: 'latestMessage',
+// 				populate: {
+// 					path: 'sender',
+// 					select: 'name email'
+// 				}
+// 			})
+// 			.populate('order');
 
-		if (!updatedChat) {
-			return res.status(404).send({ message: 'Chat not found' });
-		}
+// 		if (!updatedChat) {
+// 			return res.status(404).send({ message: 'Chat not found' });
+// 		}
 
-		res.status(200).json(updatedChat);
-	} catch (error) {
-		res.status(500).send({ message: 'Error updating chat', error: error.message });
-	}
-});
+// 		res.status(200).json(updatedChat);
+// 	} catch (error) {
+// 		res.status(500).send({ message: 'Error updating chat', error: error.message });
+// 	}
+// });
 
 module.exports = router;
