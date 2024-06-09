@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const chatModel = mongoose.Schema(
 	{
-		chatName: { type: String, trim: true },
+		
 
 		users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 		latestMessage: {
@@ -10,7 +10,7 @@ const chatModel = mongoose.Schema(
 			ref: 'Message'
 		},
 
-		order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' }
+		orderId: { type:String , required: true, trim:true , unique: true}
 	},
 	{ timestamps: true }
 );
