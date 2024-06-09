@@ -154,11 +154,16 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 // add get by user
 //vendor
 // Payment verification route
+
 router.post('/verificationPay', async (req, res) => {
+	
+
 	try {
 		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-		const order = await Order.findOne({ orderId: razorpay_order_id }).populate('vendor', 'user');
+		const order = await Order.findOne({ orderId: razorpay_order_id })
+			.populate({ path: 'vendor', select: '_id', populate: { path: 'user' } })
+			.populate('user');
 		if (!order) {
 			return res.status(404).json({ error: 'Order not found' });
 		}
@@ -190,15 +195,14 @@ router.post('/verificationPay', async (req, res) => {
 				remark: order.remark
 			};
 			const updateAds = await Ads.findByIdAndUpdate(order.ad, { acceptedOffer, isActive: false }, { new: true });
-			// await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc); //mail to user
-			// mail of vendor
-			// deactivate ad
+			await mailgun.sendEmail(order.user.email, 'order-confirmation', '', order); //mail to user
+			await mailgun.sendEmail(order.vendor.user.email, 'order-confirmation-vendor', '', order); //mail to vendor
 		} else {
 			order.paymentStatus = ORDER_PAYMENT_STATUS.Failed;
 		}
 
 		await order.save();
-		console.log(order);
+		// console.log(order);
 
 		res.status(isAuthentic ? 200 : 400).json({
 			success: isAuthentic,
@@ -214,54 +218,52 @@ router.post('/verificationPay', async (req, res) => {
 });
 // Payment refund route
 router.post('/refund', auth, role.check(ROLES.Admin), async (req, res) => {
-    try {
-        const paymentId = req.body.paymentId;
-        const findOrder = await Order.findOne({ paymentId });
+	try {
+		const paymentId = req.body.paymentId;
+		const findOrder = await Order.findOne({ paymentId });
 
-        if (!findOrder) {
-            return res.status(404).json({ error: 'No order found' });
-        }
+		if (!findOrder) {
+			return res.status(404).json({ error: 'No order found' });
+		}
 
-        if (findOrder.paymentStatus !== ORDER_PAYMENT_STATUS.Captured) {
-            return res.status(403).json({ error: `Payment not captured or status is ${findOrder.paymentStatus}` });
-        }
+		if (findOrder.paymentStatus !== ORDER_PAYMENT_STATUS.Captured) {
+			return res.status(403).json({ error: `Payment not captured or status is ${findOrder.paymentStatus}` });
+		}
 
-        if (findOrder.orderStatus !== ORDER_ITEM_STATUS.Cancelled) {
-            return res.status(403).json({ error: `Order cannot be refunded because it is already ${findOrder.orderStatus}` });
-        }
+		if (findOrder.orderStatus !== ORDER_ITEM_STATUS.Cancelled) {
+			return res.status(403).json({ error: `Order cannot be refunded because it is already ${findOrder.orderStatus}` });
+		}
 
-        const amount = findOrder.totalAmount * 100; // amount in paise
+		const amount = findOrder.totalAmount * 100; // amount in paise
 
-        const options = {
-            payment_id: paymentId,
-            amount: amount,
-            receipt: `receipt_${Date.now()}`
-        };
+		const options = {
+			payment_id: paymentId,
+			amount: amount,
+			receipt: `receipt_${Date.now()}`
+		};
 
-        const razorpayResponse = await razorpayInstance.payments.refund(options);
+		const razorpayResponse = await razorpayInstance.payments.refund(options);
 
-        if (!razorpayResponse) {
-            return res.status(400).json({ error: 'Refund request failed. Please check the payment ID and try again.' });
-        }
+		if (!razorpayResponse) {
+			return res.status(400).json({ error: 'Refund request failed. Please check the payment ID and try again.' });
+		}
 
-        findOrder.paymentStatus = ORDER_PAYMENT_STATUS.Refunded;
-        await findOrder.save();
+		findOrder.paymentStatus = ORDER_PAYMENT_STATUS.Refunded;
+		await findOrder.save();
 
-        res.status(201).json({
-            message: 'Refund initiated successfully',
-            razorpayResponse
-        });
-    } catch (error) {
-        console.error('Error during refund:', error);
-        if (error.statusCode) {
-            res.status(error.statusCode).json({ error: error.message || 'Error during refund process' });
-        } else {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
-    }
+		res.status(201).json({
+			message: 'Refund initiated successfully',
+			razorpayResponse
+		});
+	} catch (error) {
+		console.error('Error during refund:', error);
+		if (error.statusCode) {
+			res.status(error.statusCode).json({ error: error.message || 'Error during refund process' });
+		} else {
+			res.status(500).json({ error: 'Internal Server Error' });
+		}
+	}
 });
-
-
 
 // Search orders API
 router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
@@ -292,48 +294,47 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 
 // fetch orders api vendor
 router.get('/vendor/:vendorId', auth, async (req, res) => {
-    const vendorId = req.params.vendorId;
-    try {
-        const { page = 1, limit = 10, orderStatus } = req.query;
-        
-        // Create a query object
-        const query = {
-            vendor: vendorId,
-            paymentStatus: { $in: [ORDER_PAYMENT_STATUS.Refunded, ORDER_PAYMENT_STATUS.Captured] }
-        };
+	const vendorId = req.params.vendorId;
+	try {
+		const { page = 1, limit = 10, orderStatus } = req.query;
 
-        // Add orderStatus to the query if provided
-        if (orderStatus) {
-            query.orderStatus = orderStatus;
-        }
+		// Create a query object
+		const query = {
+			vendor: vendorId,
+			paymentStatus: { $in: [ORDER_PAYMENT_STATUS.Refunded, ORDER_PAYMENT_STATUS.Captured] }
+		};
 
-        const ordersDoc = await Order.find(query)
-            .sort({ orderStatus: 1, createdAt: -1 }) // Sort by orderStatus and then by createdAt
-            .populate({ path: 'user', select: 'phoneNumber name lastName email userId avatar accountType isActive _id' })
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
-            .exec();
+		// Add orderStatus to the query if provided
+		if (orderStatus) {
+			query.orderStatus = orderStatus;
+		}
 
-        const count = await Order.countDocuments(query);
+		const ordersDoc = await Order.find(query)
+			.sort({ orderStatus: 1, createdAt: -1 }) // Sort by orderStatus and then by createdAt
+			.populate({ path: 'user', select: 'phoneNumber name lastName email userId avatar accountType isActive _id' })
+			.limit(limit * 1)
+			.skip((page - 1) * limit)
+			.exec();
 
-        if (!ordersDoc.length) {
-            return res.status(404).json({ error: 'No orders found' });
-        }
+		const count = await Order.countDocuments(query);
 
-        res.status(200).json({
-            ordersDoc,
-            totalPages: Math.ceil(count / limit),
-            currentPage: Number(page),
-            count
-        });
-    } catch (error) {
-        console.log(error);
-        res.status(400).json({
-            error: 'Your request could not be processed. Please try again.'
-        });
-    }
+		if (!ordersDoc.length) {
+			return res.status(404).json({ error: 'No orders found' });
+		}
+
+		res.status(200).json({
+			ordersDoc,
+			totalPages: Math.ceil(count / limit),
+			currentPage: Number(page),
+			count
+		});
+	} catch (error) {
+		console.log(error);
+		res.status(400).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
+	}
 });
-
 
 // fetch orders api
 router.get('/user/:userId', auth, async (req, res) => {
@@ -346,10 +347,9 @@ router.get('/user/:userId', auth, async (req, res) => {
 				path: 'vendor',
 				populate: {
 					path: 'user',
-					select: 'userId avatar accountType isActive _id',
-				
+					select: 'userId avatar accountType isActive _id'
 				},
-				select:'merchantAddress _id vendorId rating description isActive'
+				select: 'merchantAddress _id vendorId rating description isActive'
 			})
 			.limit(limit * 1)
 			.skip((page - 1) * limit)
@@ -432,7 +432,6 @@ router.get('/', auth, role.check(ROLES.Admin), async (req, res) => {
 	}
 });
 
-
 // fetch order api by orderId
 router.get('/:orderId', auth, async (req, res) => {
 	try {
@@ -440,33 +439,20 @@ router.get('/:orderId', auth, async (req, res) => {
 
 		let orderDoc = null;
 
-			orderDoc = await Order.findOne({ orderId: orderId.toString() })
-				.populate({
-					path: 'vendor',
-					populate: {
-						path: 'user',
-						
-					}
-				})
-				.populate({ path: 'user' });
-	
+		orderDoc = await Order.findOne({ orderId: orderId.toString() })
+			.populate({
+				path: 'vendor',
+				populate: {
+					path: 'user'
+				}
+			})
+			.populate({ path: 'user' });
 
 		if (!orderDoc) {
 			return res.status(404).json({
 				message: `Cannot find order with the id: ${orderId}.`
 			});
 		}
-
-		// let order = {
-		// 	_id: orderDoc._id,
-		// 	total: orderDoc.total,
-		// 	created: orderDoc.created,
-		// 	totalTax: 0,
-		// 	products: orderDoc?.cart?.products,
-		// 	cartId: orderDoc.cart._id
-		// };
-
-		// order = store.caculateTaxAmount(order);
 
 		res.status(200).json({
 			orderDoc
@@ -479,32 +465,27 @@ router.get('/:orderId', auth, async (req, res) => {
 });
 
 // Cancel single order item API
+//sending mail
+// sending notifiaction
 router.delete('/cancel/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
 	const { orderId } = req.body;
 
-	let findOrder
+	let findOrder;
 
-	console.log(req.user)
+	console.log(req.user);
 	try {
 		if (req.user.role == ROLES.Admin) {
 			findOrder = await Order.findOne({ orderId: orderId });
-			
-		}else{
-			findOrder = await Order.findOne({ orderId: orderId, vendor : req.user.vendor});
-
+		} else {
+			findOrder = await Order.findOne({ orderId: orderId, vendor: req.user.vendor });
 		}
-
-		
-		
 
 		if (!findOrder) {
 			return res.status(404).json({ error: 'No single order found' });
 		}
 
-		
-
 		if (!findOrder) {
-			return res.status(404).json({ error: 'No single order found'});
+			return res.status(404).json({ error: 'No single order found' });
 		}
 
 		if (findOrder.orderStatus == ORDER_ITEM_STATUS.Processing) {
@@ -538,15 +519,17 @@ router.delete('/cancel/item', auth, role.check(ROLES.Admin, ROLES.Merchant), asy
 });
 
 // Update status of a single order item
+//sending mail
+// sending notication
 router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async (req, res) => {
 	try {
 		const { orderId, orderStatus } = req.body;
 
 		let findOrder;
 		if (req.user.role === ROLES.Admin) {
-			findOrder = await Order.findOne({  orderId });
+			findOrder = await Order.findOne({ orderId });
 		} else {
-			findOrder = await Order.findOne({  orderId, vendor: req.user.vendor });
+			findOrder = await Order.findOne({ orderId, vendor: req.user.vendor });
 		}
 
 		if (!findOrder) {
@@ -582,7 +565,7 @@ router.put('/status/item', auth, role.check(ROLES.Admin, ROLES.Merchant), async 
 		const notificationData = {
 			userId: findOrder.user,
 			title: 'Order Status Update',
-			message: `Your order status has been updated to ${findOrder.orderStatus}`,
+			message: `Your order has been ${findOrder.orderStatus}`,
 			url: `${process.env.ENDPOINT}/order/${findOrder._id}`,
 			imgUrl: findOrder.product.imageUrl || '' // Ensure there is a default if no imageUrl exists
 		};
