@@ -110,11 +110,33 @@ exports.merchantDeactivateAccount = () => {
 
 exports.orderConfirmationEmail = (order) => {
 	const message = {
-		subject: `Order Confirmation ${order._id}`,
+		subject: `Order Confirmation ${order.orderId || ''}`,
 		text:
-			`Hi ${order.user.profile.firstName}! Thank you for your order!. \n\n` +
+			`Hi ${order.user.firstName || ''}! Thank you for your order!. \n\n` +
 			`We've received your order and will contact you as soon as your package is shipped. \n\n`
 	};
-
 	return message;
 };
+
+exports.orderConfirmationVendorEmail = (order) => {
+	try {
+		const message = {
+			subject: `Order Confirmation ${order.orderId}`,
+			text:
+				`Hi ${order.vendor.user.firstName || ''}! You received a new order.\n\n` +
+				`${order.user.firstName || ''} has placed a new order with the following details:\n` +
+				`Product Name: ${order.product.name}\n` +
+				`Category: ${order.product.category.join(', ')}\n` +
+				`Image: ${order.product.imageUrl}\n` +
+				`Dispatch Days: ${order.dispatchDay}\n` +
+				`Price per Product: ${order.pricePerProduct}\n` +
+				`Total Quantity: ${order.quantity}\n` +
+				`Total Amount: ${order.totalAmount}\n` +
+				`Address: ${order.address.address}, ${order.address.city}, ${order.address.state}, ${order.address.country}, Pincode: ${order.address.pinCode}\n`
+		};
+		return message;
+	} catch (error) {
+		console.error(error);
+	}
+};
+
