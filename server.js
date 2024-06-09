@@ -57,7 +57,8 @@ app.use('/vendor', require('./src/routes/vendor'));
 app.use('/ads', require('./src/routes/ads'));
 app.use('/order', require('./src/routes/order'));
 app.use('/notifications', require('./src/routes/notifications'));
-
+app.use('/chat', require('./src/routes/chat'));
+app.use('/message', require('./src/routes/message'));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
