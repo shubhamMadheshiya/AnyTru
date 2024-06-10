@@ -47,7 +47,6 @@ app.use('/auth', require('./src/routes/auth'));
 app.use('/user', require('./src/routes/user'));
 app.use('/product', require('./src/routes/product'));
 app.use('/wishlist', require('./src/routes/wishlist'));
-app.use('/cart', require('./src/routes/cart'));
 app.use('/address', require('./src/routes/address'));
 app.use('/aboutUs', require('./src/routes/aboutUs'));
 app.use('/t&c', require('./src/routes/t&c'));

@@ -183,7 +183,7 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 				match: {
 					$or: [{ email: { $regex: regex } }, { firstName: { $regex: regex } }, { userId: { $regex: regex } }]
 				},
-				select: '-password -provider -followers -orders -cart -created -address -following'
+				select: '-password -provider -followers -orders -created -address -following'
 			})
 			.sort('-created');
 
@@ -208,7 +208,7 @@ router.get('/list', auth, role.check(ROLES.Admin), async (req, res) => {
 		const query = status ? { status } : {};
 
 		const merchants = await Merchant.find(query)
-			.populate('user', '-password -provider -followers -orders -cart -created -address -following')
+			.populate('user', '-password -provider -followers -orders  -created -address -following')
 			.sort('-created')
 			.limit(limit * 1)
 			.skip((page - 1) * limit)

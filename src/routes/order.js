@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 
 // Bring in Models & Utils
 const Order = require('../models/Order');
-const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
@@ -70,7 +69,7 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 
 		const newOrder = new Order(orderData);
 		const orderDoc = await newOrder.save();
-		// await Cart.deleteOne({ _id: cartId });
+		
 
 		// // send vendor Notification
 		// //add ads acceptedOffer
@@ -90,74 +89,12 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 	}
 });
 
-// // Checkout route
-// router.post('/checkout/:cartId', auth, async (req, res) => {
-// 	try {
-// 		const cartId = req.params.cartId;
-// 		const userId = req.user._id;
 
-// 		const cart = await Cart.findById(cartId).populate('products.address').populate('products.product');
-// 		if (!cart) {
-// 			return res.status(400).json({ error: 'Cart not found' });
-// 		}
-
-// 		const user = await User.findById(userId);
-// 		if (!user) {
-// 			return res.status(400).json({ error: 'User not found' });
-// 		}
-
-// 		if (!cart.user.equals(userId)) {
-// 			return res.status(401).json({ error: 'Cart does not belong to you' });
-// 		}
-
-// 		const options = {
-// 			amount: cart.overAllPrice * 100,
-// 			currency: 'INR',
-// 			receipt: `receipt_${Date.now()}`,
-// 			payment_capture: 1
-// 		};
-// 		const order = await razorpayInstance.orders.create(options);
-// 		if (!order) {
-// 			return res.status(400).json({ error: 'Order not found' });
-// 		}
-
-// 		const orderData = {
-// 			orderId: order.id,
-// 			user: user._id,
-// 			amount: order.amount,
-// 			status: ORDER_PAYMENT_STATUS.Created,
-// 			receipt: order.receipt,
-// 			products: cart.products
-// 		};
-
-// 		const newOrder = new Order(orderData);
-
-// 		const orderDoc = await newOrder.save();
-// 		await Cart.deleteOne({ _id: cartId });
-
-// 		// send vendor Notification
-// 		//add ads acceptedOffer
-// 		await mailgun.sendEmail(user.email, 'order-confirmation', orderDoc);
-
-// 		res.status(200).json({
-// 			success: true,
-// 			message: 'Your order has been created successfully!',
-// 			orderDoc
-// 		});
-// 	} catch (error) {
-// 		console.error(error);
-// 		res.status(400).json({
-// 			error: 'Your request could not be processed. Please try again.'
-// 		});
-// 	}
-// });
 // add get by user
 //vendor
 // Payment verification route
 
 router.post('/verificationPay', async (req, res) => {
-	
-
 	try {
 		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
