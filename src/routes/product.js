@@ -659,7 +659,7 @@ router.get('/likeslist/:productId', auth, async (req, res) => {
 		const userId = req.user._id;
 
 		// Find the product
-		const product = await Product.findById(productId).populate('likes', '_id userId firstName lastName avatar');
+		const product = await Product.findOne({_id:productId, isActive: true}).populate('likes', '_id userId firstName lastName avatar');
 
 		if (!product) {
 			return res.status(404).json({
