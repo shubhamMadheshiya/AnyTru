@@ -9,7 +9,7 @@ exports.CATEGORIES = {
 	Furniture: 'Furniture',
 	Clothing: 'Clothing',
 	PrintsGraphics: 'Prints & Graphics',
-	HomeDecor: 'Home_Decor ',
+	HomeDecor: 'Home_Decor',
 	Jewellery: 'Jewellery',
 	EventSetups: 'Event Setups',
 	Accessories: 'Accessories',
