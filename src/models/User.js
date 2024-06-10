@@ -3,7 +3,6 @@ const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
 const wishlist = require('./wishlist');
 
 const userSchema = new mongoose.Schema({
-	
 	firstName: {
 		type: String,
 		required: true,
@@ -78,7 +77,8 @@ const userSchema = new mongoose.Schema({
 	followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 	following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 	orders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }],
-	cart: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cart' }],
+	posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+
 	accountType: {
 		type: String,
 		enum: ['creater', 'seller'],
