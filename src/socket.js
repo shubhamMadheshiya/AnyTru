@@ -14,6 +14,7 @@ const socketConfig = (io) => {
 		socket.on('joinRoom', ({ userId, room }) => {
 			socket.join(room);
 			console.log(`${userId} joined room ${room}`);
+			socket.emit("connected")
 		});
 
 		socket.on('chatMessage', async ({ sender, receiver, content }) => {

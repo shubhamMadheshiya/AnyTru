@@ -70,7 +70,7 @@ router.get('/item/:slug', async (req, res) => {
 router.get('/list/search', async (req, res) => {
 	const userDoc = await checkAuth(req);
 
-	const userId = userDoc?._id;
+	const userId = userDoc?.id;
 	const isAdmin = userDoc?.role == ROLES.Admin;
 
 	try {
@@ -145,7 +145,8 @@ router.get('/list', async (req, res) => {
 	const { page = 1, limit = 10, likes, category, isActive = true } = req.query;
 	let isAdmin;
 	const userDoc = await checkAuth(req);
-	const userId = userDoc?._id;
+	
+	const userId = userDoc?.id;
 
 	if (userDoc?.role == ROLES.Admin) {
 		isAdmin = true;
@@ -194,6 +195,8 @@ router.get('/list', async (req, res) => {
 				]);
 				const totalLikes = productLikesCount[0] ? productLikesCount[0].likesCount : 0;
 				const userLiked = await Product.exists({ _id: product._id, likes: userId });
+
+				
 
 				return {
 					_id: product._id,
