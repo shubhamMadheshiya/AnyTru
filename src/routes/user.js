@@ -246,7 +246,6 @@ router.get('/', auth, async (req, res) => {
 			{ _id: req.user },
 			{
 				password: 0,
-				_id: 0,
 				provider: 0,
 				orders: 0,
 				created: 0,
