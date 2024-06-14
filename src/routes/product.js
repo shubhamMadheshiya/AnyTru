@@ -245,8 +245,8 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 			return res.status(400).json({ error: 'You must enter a SKU.' });
 		}
 
-		if (!description || !name) {
-			return res.status(400).json({ error: 'You must enter description and name.' });
+		if (!name) {
+			return res.status(400).json({ error: 'You must enter name.' });
 		}
 
 		// Validate categories
