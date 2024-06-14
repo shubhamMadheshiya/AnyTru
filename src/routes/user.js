@@ -260,6 +260,7 @@ router.get('/', auth, async (req, res) => {
 		console.log(findUser);
 
 	const user = {
+		_id:findUser._id,
 		firstName: findUser.firstName,
 		lastName: findUser.lastName,
 		email: findUser.email,
