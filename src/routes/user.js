@@ -335,45 +335,46 @@ router.get('/:userId', auth, async (req, res) => {
 	}
 });
 
+//upadte user
 
-// UPDATE USER
-router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
+router.put('/:id', auth, upload.single('avatar'), async (req, res) => {
 	try {
-		const { firstName, lastName, phoneNumber, bio, userId } = req.body;
+		const userId = req.params.id;
+		const requesterId = req.user._id;
+		const requesterRole = req.user.role;
+		const { firstName, lastName, phoneNumber, bio, newUserId } = req.body;
 		const avatar = req.file;
 
-		let data = {
-			firstName,
-			lastName,
-			phoneNumber,
-			bio
-		};
+		// Find the user to check ownership
+		const user = await User.findById(userId);
+		if (!user) {
+			return res.status(404).json({ error: 'User not found.' });
+		}
 
-		if (userId && userId.length !== 0) {
-			const existingUser = await User.findOne({ userId });
+		// Check if the requester is the user themselves or an admin
+		if (String(user._id) !== String(requesterId) && requesterRole !== ROLES.Admin) {
+			return res.status(403).json({ error: 'You do not have permission to update this user.' });
+		}
+
+		// Check if new userId is already in use by another user
+		if (newUserId && newUserId !== user.userId) {
+			const existingUser = await User.findOne({ userId: newUserId });
 			if (existingUser) {
-				return res.status(400).json({ error: 'userId is already in use by another user' });
+				return res.status(400).json({ error: 'userId is already in use by another user.' });
 			}
-			data.userId = userId;
-		}
-		if (firstName && firstName.length !== 0) {
-			data.firstName = firstName;
-		}
-		if (lastName && lastName.length !== 0) {
-			data.lastName = lastName;
-		}
-		if (phoneNumber && phoneNumber.length !== 0 && phoneNumber.length < 11) {
-			data.phoneNumber = phoneNumber;
 		}
 
-		// Check if the userId is unique
-		// const existingUser = await User.findOne({ userId });
-		// if (existingUser && userId !== undefined) {
-		// 	return res.status(400).json({ error: 'userId is already in use by another user' });
-		// }
+		// Filter the update object to allow only specific fields and non-empty values
+		const updateFields = { firstName, lastName, phoneNumber, bio, userId: newUserId };
+		const allowedUpdates = {};
+		Object.keys(updateFields).forEach((key) => {
+			if (updateFields[key] !== undefined && updateFields[key].length > 0) {
+				allowedUpdates[key] = updateFields[key];
+			}
+		});
 
 		// Update the user
-		const updatedUser = await User.findOneAndUpdate({ _id: req.params.userId }, data, { new: true });
+		const updatedUser = await User.findByIdAndUpdate(userId, allowedUpdates, { new: true });
 		if (!updatedUser) {
 			return res.status(404).json({ error: 'User not found' });
 		}
@@ -381,17 +382,36 @@ router.put('/:userId', auth, upload.single('avatar'), async (req, res) => {
 		// Handle avatar upload if present
 		if (avatar) {
 			if (updatedUser.avatarKey) {
-				const deleteImg = await s3Delete([updatedUser.avatarKey]);
+				await s3Delete([updatedUser.avatarKey]);
 			}
 			const { imageUrl, imageKey } = await s3Upload(avatar);
 			updatedUser.avatar = imageUrl;
 			updatedUser.avatarKey = imageKey;
-			updatedUser.save();
+			await updatedUser.save();
 		}
-		res.status(200).json({ success: true, message: 'Updated Successfully' });
+
+		// Prepare response data
+		const data = {
+			_id: updatedUser._id,
+			userId: updatedUser.userId,
+			firstName: updatedUser.firstName,
+			lastName: updatedUser.lastName,
+			phoneNumber: updatedUser.phoneNumber,
+			bio: updatedUser.bio,
+			avatar: updatedUser.avatar,
+			createdAt: updatedUser.createdAt
+		};
+
+		res.status(200).json({
+			success: true,
+			message: 'User updated successfully!',
+			user: data
+		});
 	} catch (error) {
-		console.log(error);
-		res.status(500).json({ error: 'Your request could not be processed. Please try again.' });
+		console.error(error);
+		res.status(500).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
 	}
 });
 
