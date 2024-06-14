@@ -326,7 +326,7 @@ router.get(
 			const payload = {
 				id: req.user.id
 			};
-
+			
 		// TODO find another way to send the token to frontend
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 		const jwtToken = `Bearer ${token}`;

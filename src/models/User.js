@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
 const wishlist = require('./wishlist');
 
+
 const userSchema = new mongoose.Schema({
 	firstName: {
 		type: String,
@@ -22,7 +23,6 @@ const userSchema = new mongoose.Schema({
 	},
 	userId: {
 		type: String,
-		unique: true,
 		trim: true
 	},
 	phoneNumber: {

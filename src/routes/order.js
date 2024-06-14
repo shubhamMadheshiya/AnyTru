@@ -21,6 +21,7 @@ const Ads = require('../models/Ads');
 router.post('/checkoutSingle', auth, async (req, res) => {
 	const { adId, offerId } = req.body;
 	const userId = req.user._id;
+	console.log("checkout")
 
 	if (!adId || !offerId) {
 		return res.status(404).json({ error: ' please provide adId and offerId' });
