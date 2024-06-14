@@ -309,6 +309,7 @@ router.get('/:userId', auth, async (req, res) => {
 
 		// Construct the user object to return
 		const user = {
+			_id:findUser._id,
 			firstName: findUser.firstName,
 			lastName: findUser.lastName,
 			email: findUser.email,
