@@ -67,6 +67,7 @@ router.get('/item/:slug', async (req, res) => {
 
 // complete
 // fetch product name search api
+
 router.get('/list/search', async (req, res) => {
 	const userDoc = await checkAuth(req);
 
@@ -91,7 +92,8 @@ router.get('/list/search', async (req, res) => {
 			user: 1,
 			isActive: 1,
 			category: 1,
-			likes: 1
+			likes: 1,
+			createdAt: 1 // Explicitly include createdAt field
 		};
 
 		const products = await Product.find(filter, projection)
@@ -122,7 +124,8 @@ router.get('/list/search', async (req, res) => {
 				isActive: product.isActive,
 				category: product.category,
 				totalLikes: product.likes.length,
-				userLiked
+				userLiked,
+				createdAt: product.createdAt // Ensure createdAt is included in the response
 			};
 		});
 
@@ -141,11 +144,12 @@ router.get('/list/search', async (req, res) => {
 });
 
 // fetch products api of particular user by admin
+
 router.get('/list', async (req, res) => {
 	const { page = 1, limit = 10, likes, category, isActive = true } = req.query;
 	let isAdmin;
 	const userDoc = await checkAuth(req);
-	
+
 	const userId = userDoc?.id;
 
 	if (userDoc?.role == ROLES.Admin) {
@@ -170,7 +174,16 @@ router.get('/list', async (req, res) => {
 		}
 
 		// Find products with the given filters
-		let productsQuery = Product.find(filter, { _id: 1, sku: 1, imageUrl: 1, description: 1, user: 1, isActive: 1, category: 1 })
+		let productsQuery = Product.find(filter, {
+			_id: 1,
+			sku: 1,
+			imageUrl: 1,
+			description: 1,
+			user: 1,
+			isActive: 1,
+			category: 1,
+			createdAt: 1 // Explicitly include createdAt field
+		})
 			.populate('user', '_id firstName lastName userId role isActive avatar createdAt')
 			.sort('-createdAt')
 			.limit(limit * 1)
@@ -196,8 +209,6 @@ router.get('/list', async (req, res) => {
 				const totalLikes = productLikesCount[0] ? productLikesCount[0].likesCount : 0;
 				const userLiked = await Product.exists({ _id: product._id, likes: userId });
 
-				
-
 				return {
 					_id: product._id,
 					sku: product.sku,
@@ -207,7 +218,8 @@ router.get('/list', async (req, res) => {
 					isActive: product.isActive,
 					category: product.category,
 					totalLikes,
-					userLiked: !!userLiked
+					userLiked: !!userLiked,
+					createdAt: product.createdAt // Ensure createdAt is included in the response
 				};
 			})
 		);
