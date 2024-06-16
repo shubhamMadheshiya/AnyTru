@@ -25,38 +25,48 @@ const upload = multer({ storage });
 router.get('/item/:slug', async (req, res) => {
 	try {
 		const slug = req.params.slug;
-		const userId = req.user?._id;
 
 		// Check authentication and role
 		const userDoc = await checkAuth(req);
+		const userId = userDoc?.id;
 		const isAdmin = userDoc?.role === ROLES.Admin;
 
+		// Create filter based on user role
+		const filter = { slug };
+		if (!isAdmin) {
+			filter.isActive = true; // Non-admin users can only see active products
+		}
+
 		// Fetch the product using the slug
-		const productDoc = await Product.findOne({ slug, isActive: true }, { imageKey: 0 })
-			.populate('user', '_id firstName lastName userId role accountType isActive avatar')
+		const productDoc = await Product.findOne(filter, { imageKey: 0 })
+			.populate('user', '_id firstName lastName userId role accountType isActive avatar followers')
 			.lean(); // Use lean() for better performance and to return plain JavaScript objects
 
-		// Check if the product exists and has an active user
-		if (!productDoc || !productDoc.user || !productDoc.user.isActive) {
+		if (!productDoc || !productDoc.user || (!isAdmin && !productDoc.isActive)) {
 			return res.status(404).json({
-				message: 'No product found.'
+				error: 'No product found.'
 			});
 		}
 
 		// Calculate the number of likes
 		const totalLikes = productDoc.likes.length;
-		delete productDoc.likes; // Remove the likes array from the response
 
 		// Check if the user liked the product
 		const userLiked = userId ? productDoc.likes.includes(userId) : false;
 
-		// Add totalLikes and userLiked to the product document in the response
+		// Check if the authenticated user is following the product user
+		const userIsFollowingProductUser = productDoc.user.followers.some((follower) => follower.equals(userId));
+
+		// Add totalLikes, userLiked, and userIsFollowing to the product document
 		productDoc.totalLikes = totalLikes;
 		productDoc.userLiked = userLiked;
+		productDoc.userIsFollowing = userIsFollowingProductUser;
 
-		return res.status(200).json({
-			product: productDoc
-		});
+		// Remove the likes array and followers from the response
+		delete productDoc.likes;
+		delete productDoc.user.followers;
+
+		return res.status(200).json({ product: productDoc });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({
@@ -64,6 +74,7 @@ router.get('/item/:slug', async (req, res) => {
 		});
 	}
 });
+
 
 // complete
 // fetch product name search api
@@ -97,7 +108,7 @@ router.get('/list/search', async (req, res) => {
 		};
 
 		const products = await Product.find(filter, projection)
-			.populate('user', '_id firstName lastName userId role isActive avatar createdAt')
+			.populate('user', '_id firstName lastName userId role isActive avatar followers createdAt')
 			.sort('-createdAt')
 			.skip(skip)
 			.limit(limit)
@@ -115,16 +126,28 @@ router.get('/list/search', async (req, res) => {
 		// Check if the authenticated user liked each product and get the total likes
 		const productsWithLikes = products.map((product) => {
 			const userLiked = product.likes.includes(userId);
+			const userIsFollowingProductUser = product.user && product.user.followers.includes(userId) || false;
+
 			return {
 				_id: product._id,
 				sku: product.sku,
 				imageUrl: product.imageUrl,
 				description: product.description,
-				user: product.user,
+				user: {
+					_id: product.user._id,
+					firstName: product.user.firstName,
+					lastName: product.user.lastName,
+					userId: product.user.userId,
+					role: product.user.role,
+					isActive: product.user.isActive,
+					avatar: product.user.avatar,
+					createdAt: product.user.createdAt
+				},
 				isActive: product.isActive,
 				category: product.category,
 				totalLikes: product.likes.length,
 				userLiked,
+				userIsFollowing: userIsFollowingProductUser,
 				createdAt: product.createdAt // Ensure createdAt is included in the response
 			};
 		});
@@ -180,11 +203,16 @@ router.get('/list', async (req, res) => {
 			imageUrl: 1,
 			description: 1,
 			user: 1,
+			name: 1,
 			isActive: 1,
 			category: 1,
+			slug: 1,
 			createdAt: 1 // Explicitly include createdAt field
 		})
-			.populate('user', '_id firstName lastName userId role isActive avatar createdAt')
+			.populate({
+				path: 'user',
+				select: '_id firstName lastName userId role isActive avatar createdAt followers'
+			})
 			.sort('-createdAt')
 			.limit(limit * 1)
 			.skip((page - 1) * limit);
@@ -209,16 +237,31 @@ router.get('/list', async (req, res) => {
 				const totalLikes = productLikesCount[0] ? productLikesCount[0].likesCount : 0;
 				const userLiked = await Product.exists({ _id: product._id, likes: userId });
 
+				// Check if the authenticated user is following the product user
+				const userIsFollowingProductUser = product.user && product.user.followers.includes(userId) || false;
+
 				return {
 					_id: product._id,
 					sku: product.sku,
+					slug: product.slug,
+					name: product.name,
 					imageUrl: product.imageUrl,
 					description: product.description,
-					user: product.user,
+					user: {
+						_id: product.user._id,
+						firstName: product.user.firstName,
+						lastName: product.user.lastName,
+						userId: product.user.userId,
+						role: product.user.role,
+						isActive: product.user.isActive,
+						avatar: product.user.avatar,
+						createdAt: product.user.createdAt
+					},
 					isActive: product.isActive,
 					category: product.category,
 					totalLikes,
 					userLiked: !!userLiked,
+					userIsFollowing: userIsFollowingProductUser, // Simplify this property
 					createdAt: product.createdAt // Ensure createdAt is included in the response
 				};
 			})
@@ -340,59 +383,58 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 
 // fetch products api of particular user
 router.get('/', auth, async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const userId = req.user._id;
+	const { page = 1, limit = 10 } = req.query;
+	const userId = req.user._id;
 
-    try {
-        // Fetch products for the authenticated user, excluding the likes array
-        const products = await Product.find({ user: userId }, { imageKey: 0, likes: 0 })
-            .sort('-createdAt')
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
-            .exec();
+	try {
+		// Fetch products for the authenticated user, excluding the likes array
+		const products = await Product.find({ user: userId }, { imageKey: 0, likes: 0 })
+			.sort('-createdAt')
+			.limit(limit * 1)
+			.skip((page - 1) * limit)
+			.exec();
 
-        // Count total number of products
-        const count = await Product.countDocuments({ user: userId });
+		// Count total number of products
+		const count = await Product.countDocuments({ user: userId });
 
-        // Add totalLikes and userLiked fields to each product
-        const productsWithLikes = await Promise.all(products.map(async (product) => {
-            const productWithLikes = await Product.findById(product._id, 'likes').exec();
-            const likes = productWithLikes.likes || []; // Ensure likes is an array
-            const totalLikes = likes.length;
-            const userLiked = likes.includes(userId);
-            return {
-                ...product._doc,
-                totalLikes,
-                userLiked
-            };
-        }));
+		// Add totalLikes and userLiked fields to each product
+		const productsWithLikes = await Promise.all(
+			products.map(async (product) => {
+				const productWithLikes = await Product.findById(product._id, 'likes').exec();
+				const likes = productWithLikes.likes || []; // Ensure likes is an array
+				const totalLikes = likes.length;
+				const userLiked = likes.includes(userId);
+				return {
+					...product._doc,
+					totalLikes,
+					userLiked
+				};
+			})
+		);
 
-        res.status(200).json({
-            products: productsWithLikes,
-            totalPages: Math.ceil(count / limit),
-            currentPage: Number(page),
-            count
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            error: 'Internal server error'
-        });
-    }
+		res.status(200).json({
+			products: productsWithLikes,
+			totalPages: Math.ceil(count / limit),
+			currentPage: Number(page),
+			count
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({
+			error: 'Internal server error'
+		});
+	}
 });
-
-
-
 
 // fetch product api of particular product by it's Id
 
 router.get('/:id', async (req, res) => {
 	try {
 		const productId = req.params.id;
-		const userId = req.user?._id;
 
 		// Check authentication and role
 		const userDoc = await checkAuth(req);
+		const userId = userDoc?.id;
 		const isAdmin = userDoc?.role === ROLES.Admin;
 
 		// Create filter based on user role
@@ -403,7 +445,10 @@ router.get('/:id', async (req, res) => {
 
 		// Fetch the product and project the necessary fields
 		const productDoc = await Product.findOne(filter, { imageKey: 0 })
-			.populate('user', '_id firstName lastName userId role accountType isActive avatar')
+			.populate({
+				path: 'user',
+				select: '_id firstName lastName userId role accountType isActive avatar followers'
+			})
 			.lean(); // Use lean() for better performance and to return plain JavaScript objects
 
 		if (!productDoc) {
@@ -414,16 +459,23 @@ router.get('/:id', async (req, res) => {
 
 		// Calculate the number of likes
 		const totalLikes = productDoc.likes.length;
-		delete productDoc.likes; // Remove the likes array from the response
 
 		// Check if the user liked the product
 		const userLiked = userId ? productDoc.likes.includes(userId) : false;
 
-		// Add totalLikes and userLiked to the product document
+		// Check if the authenticated user is following the product user
+		const userIsFollowingProductUser = productDoc.user.followers.some((follower) => follower.equals(userId));
+
+		// Add totalLikes, userLiked, and userIsFollowing to the product document
 		productDoc.totalLikes = totalLikes;
 		productDoc.userLiked = userLiked;
+		productDoc.userIsFollowing = userIsFollowingProductUser;
 
-		return res.status(200).json({ productDoc });
+		// Remove the likes array and followers from the response
+		delete productDoc.likes;
+		delete productDoc.user.followers;
+
+		return res.status(200).json({ product: productDoc });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({
@@ -569,7 +621,6 @@ router.put('/:id/active', auth, async (req, res) => {
 	}
 });
 
-
 //completed
 //delete product by Id (Admin & User)
 router.delete('/delete/:id', auth, async (req, res) => {
@@ -674,7 +725,10 @@ router.get('/likeslist/:productId', auth, async (req, res) => {
 		const userId = req.user._id;
 
 		// Find the product
-		const product = await Product.findOne({_id:productId, isActive: true}).populate('likes', '_id userId firstName lastName avatar');
+		const product = await Product.findOne({ _id: productId, isActive: true }).populate(
+			'likes',
+			'_id userId firstName lastName avatar'
+		);
 
 		if (!product) {
 			return res.status(404).json({
@@ -696,7 +750,7 @@ router.get('/likeslist/:productId', auth, async (req, res) => {
 					firstName: user.firstName,
 					lastName: user.lastName,
 					avatar: user.avatar,
-					isFollowing: isFollowing?true:false,
+					isFollowing: isFollowing ? true : false
 				};
 			})
 		);
