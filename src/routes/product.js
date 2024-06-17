@@ -98,6 +98,7 @@ router.get('/list/search', async (req, res) => {
 		const projection = {
 			_id: 1,
 			sku: 1,
+			name:1,
 			imageUrl: 1,
 			description: 1,
 			user: 1,
@@ -131,6 +132,7 @@ router.get('/list/search', async (req, res) => {
 			return {
 				_id: product._id,
 				sku: product.sku,
+				name: product.name,
 				imageUrl: product.imageUrl,
 				description: product.description,
 				user: {
