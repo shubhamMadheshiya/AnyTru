@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { ROLES, EMAIL_PROVIDER } = require('../constants/index');
+const { ROLES, EMAIL_PROVIDER,ACCOUNTS } = require('../constants/index');
 const wishlist = require('./wishlist');
 
 
@@ -81,8 +81,8 @@ const userSchema = new mongoose.Schema({
 
 	accountType: {
 		type: String,
-		enum: ['creater', 'seller'],
-		default: 'creater'
+		enum: [ACCOUNTS.Creator, ACCOUNTS.Personal],
+		default: ACCOUNTS.Personal
 	},
 	merchantReq: {
 		type: mongoose.Schema.Types.ObjectId,
