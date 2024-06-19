@@ -15,6 +15,10 @@ exports.CATEGORIES = {
 	Accessories: 'Accessories',
 	Others: 'Others'
 };
+exports.ACCOUNTS = {
+	Personal :'Personal',
+	Creator: 'Creator'
+},
 
 exports.ADMIN_EMAILS = ['Anytruofficial@gmail.com'];
 
