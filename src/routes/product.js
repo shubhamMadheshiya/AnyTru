@@ -17,8 +17,24 @@ const { ROLES, CATEGORIES, ENDPOINT } = require('../constants');
 const NotificationService = require('../services/notificationService');
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// File filter function
+const fileFilter = (req, file, cb) => {
+	// Accept only specific file types (e.g., images and PDFs)
+	if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+		cb(null, true);
+	} else {
+		cb(new Error('Invalid file type. Only JPEG and PNG files are allowed.'), false);
+	}
+};
 
+// Multer configuration
+const upload = multer({
+	storage: storage,
+	limits: {
+		fileSize: 5 * 1024 * 1024 // Limit file size to 5MB
+	},
+	fileFilter: fileFilter
+});
 //complete
 // fetch product slug api
 
