@@ -5,7 +5,7 @@ const auth = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const { authorizeRole } = require('../middleware/authorizeRole');
 const bcrypt = require('bcryptjs');
-const { ROLES, MERCHANT_STATUS, ADMIN_EMAILS } = require('../constants/index');
+const { ROLES, MERCHANT_STATUS, ADMIN_EMAILS, ACCOUNTS } = require('../constants/index');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Merchant = require('../models/merchant');
@@ -81,48 +81,128 @@ router.get('/search', auth, async (req, res) => {
 	}
 });
 
-// fetch users api
 router.get('/list', auth, async (req, res) => {
 	try {
-		const { page = 1, limit = 10 } = req.query;
+		const { page = 1, limit = 10, sortField = 'created', sortOrder = 'desc', accountType, role } = req.query;
 
-		const users = await User.find(
-			{ _id: { $ne: req.user._id } },
-			{
-				password: 0,
-				_id: 0,
-				provider: 0,
-				address: 0,
-				followers: 0,
-				following: 0,
-				orders: 0,
-				vendor: 0,
-				created: 0,
-				phoneNumber: 0,
-				merchantReq: 0,
-				bio: 0
+		// Convert page and limit to numbers
+		const pageNumber = parseInt(page, 10);
+		const limitNumber = parseInt(limit, 10);
+
+		// Allowed sort fields
+		const allowedSortFields = ['followers', 'following', 'orders', 'created'];
+
+		// Validate sort field
+		if (!allowedSortFields.includes(sortField)) {
+			return res.status(400).json({
+				error: `Invalid sort field. Allowed fields are: ${allowedSortFields.join(', ')}`
+			});
+		}
+
+		// Validate sort order
+		if (sortOrder !== 'asc' && sortOrder !== 'desc') {
+			return res.status(400).json({
+				error: 'Invalid sort order. Allowed values are: asc, desc'
+			});
+		}
+
+		// Build the sort object
+		const sortOptions = {};
+		sortOptions[sortField] = sortOrder === 'asc' ? 1 : -1;
+
+		// Define the projection object to exclude certain fields
+		const projection = {
+			password: 0,
+			_id: 0,
+			provider: 0,
+			address: 0,
+			followers: 0,
+			following: 0,
+			orders: 0,
+			vendor: 0,
+			created: 0,
+			phoneNumber: 0,
+			merchantReq: 0,
+			bio: 0,
+			posts: 0 // Exclude posts array
+		};
+
+		// Include additional fields in projection
+		projection.accountType = 1;
+		projection.role = 1;
+		projection.avatar = 1;
+
+		// Define the query object
+		const query = { _id: { $ne: req.user._id } };
+
+		// Add account type filter
+		if (accountType) {
+			if ([ACCOUNTS.Personal, ACCOUNTS.Creator].includes(accountType)) {
+				query.accountType = accountType;
+			} else {
+				return res.status(400).json({
+					error: `Invalid account type. Allowed values are: ${(ACCOUNTS.Personal, ACCOUNTS.Creator)}`
+				});
 			}
-		)
-			.sort('-created')
-			//   .populate('merchant', 'name')
-			.limit(limit * 1)
-			.skip((page - 1) * limit)
-			.exec();
+		}
 
-		const count = await User.countDocuments();
+		// Add role filter
+		if (role) {
+			if ([ROLES.Admin, ROLES.User, ROLES.Merchant].includes(role)) {
+				query.role = role;
+			} else {
+				return res.status(400).json({
+					error: `Invalid role. Allowed values are:${(ROLES.Admin, ROLES.User, ROLES.Merchant)}`
+				});
+			}
+		}
 
+		// Log the query and sorting options
+		console.log('Query:', query);
+		console.log('Sort options:', sortOptions);
+
+		// Fetch users
+		const users = await User.aggregate([
+			{ $match: query },
+			{
+				$project: {
+					username: 1,
+					email: 1,
+					accountType: 1,
+					role: 1,
+					avatar: 1,
+					followersCount: { $size: '$followers' },
+					followingCount: { $size: '$following' },
+					postsCount: { $size: '$posts' }
+				}
+			},
+			{ $sort: sortOptions },
+			{ $skip: (pageNumber - 1) * limitNumber },
+			{ $limit: limitNumber }
+		]);
+
+		// Fetch the total count of users matching the query
+		const count = await User.countDocuments(query);
+
+		// Log the users found
+		console.log('Users found:', users);
+
+		// Send response
 		res.status(200).json({
 			users,
-			totalPages: Math.ceil(count / limit),
-			currentPage: Number(page),
+			totalPages: Math.ceil(count / limitNumber),
+			currentPage: pageNumber,
 			count
 		});
 	} catch (error) {
+		console.error('Error:', error);
 		res.status(400).json({
 			error: 'Your request could not be processed. Please try again.'
 		});
 	}
 });
+
+
 // get merchant status
 
 router.get('/vendor/status', auth, async (req, res) => {
