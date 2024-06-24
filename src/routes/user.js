@@ -171,6 +171,8 @@ router.get('/list', auth, async (req, res) => {
 					accountType: 1,
 					role: 1,
 					avatar: 1,
+					vendor:1,
+					created:1,
 					followersCount: { $size: '$followers' },
 					followingCount: { $size: '$following' },
 					postsCount: { $size: '$posts' }
