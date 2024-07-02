@@ -122,7 +122,6 @@ router.get('/list', auth, async (req, res) => {
 			vendor: 0,
 			created: 0,
 			phoneNumber: 0,
-			merchantReq: 0,
 			bio: 0,
 			posts: 0 // Exclude posts array
 		};
@@ -141,7 +140,7 @@ router.get('/list', auth, async (req, res) => {
 				query.accountType = accountType;
 			} else {
 				return res.status(400).json({
-					error: `Invalid account type. Allowed values are: ${(ACCOUNTS.Personal, ACCOUNTS.Creator)}`
+					error: `Invalid account type. Allowed values are: ${ACCOUNTS.Personal}, ${ACCOUNTS.Creator}`
 				});
 			}
 		}
@@ -152,7 +151,7 @@ router.get('/list', auth, async (req, res) => {
 				query.role = role;
 			} else {
 				return res.status(400).json({
-					error: `Invalid role. Allowed values are:${(ROLES.Admin, ROLES.User, ROLES.Merchant)}`
+					error: `Invalid role. Allowed values are: ${ROLES.Admin}, ${ROLES.User}, ${ROLES.Merchant}`
 				});
 			}
 		}
@@ -165,17 +164,32 @@ router.get('/list', auth, async (req, res) => {
 		const users = await User.aggregate([
 			{ $match: query },
 			{
+				$lookup: {
+					from: 'merchants',
+					localField: 'merchantReq',
+					foreignField: '_id',
+					as: 'merchantData'
+				}
+			},
+			{
+				$unwind: {
+					path: '$merchantData',
+					preserveNullAndEmptyArrays: true
+				}
+			},
+			{
 				$project: {
 					username: 1,
 					email: 1,
 					accountType: 1,
 					role: 1,
 					avatar: 1,
-					vendor:1,
-					created:1,
+					vendor: 1,
+					created: 1,
 					followersCount: { $size: '$followers' },
 					followingCount: { $size: '$following' },
-					postsCount: { $size: '$posts' }
+					postsCount: { $size: '$posts' },
+					merchantStatus: '$merchantData.status' // Include only the merchant status
 				}
 			},
 			{ $sort: sortOptions },
@@ -203,6 +217,7 @@ router.get('/list', auth, async (req, res) => {
 		});
 	}
 });
+
 
 
 // get merchant status
