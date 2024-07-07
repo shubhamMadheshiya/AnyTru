@@ -201,6 +201,29 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 });
 
 
+// get merchant req by id
+router.get('/:reqId', auth, role.check(ROLES.Admin), async (req, res) => {
+	try {
+	
+
+		const reqId = req.params.reqId;
+
+		const merchant = await Merchant.findById(reqId)
+			.populate('user', '-password -provider -followers -orders  -created -address -following').exec();
+
+
+		res.status(200).json({
+			merchant
+			
+		});
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({
+			error: 'Your request could not be processed. Please try again.'
+		});
+	}
+});
+
 // Fetch all merchants API
 router.get('/list', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
@@ -271,6 +294,10 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		// 		error: 'This Request already has been approved.'
 		// 	});
 		// }
+		if (!me) {
+			return res.status(404).json({error:'Request not found'})
+			
+		}
 
 		if (me?.user?.role === ROLES.Merchant) {
 			return res.status(400).json({
@@ -318,6 +345,10 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 			status: MERCHANT_STATUS.Rejected
 		};
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
+		if (!me) {
+			return res.status(404).json({error:'Request not found'})
+			
+		}
 		if (me.status === MERCHANT_STATUS.Rejected) {
 			return res.status(400).json({
 				error: 'This Request already has been rejected.'
@@ -505,6 +536,7 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 // };
 
 const createMerchantUser = async (merchantDoc) => {
+	console.log(merchantDoc)
 	
 	try {
 		const newVendor = new Vendor({
