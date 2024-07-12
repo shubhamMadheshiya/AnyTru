@@ -13,6 +13,9 @@ const keys = require('./src/config/keys');
 const Chat = require('./src/models/Chat');
 const NotificationService = require('./src/services/notificationService');
 const Message = require('./src/models/Message');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const mongoSanitize = require('express-mongo-sanitize');
 const swaggerDocument = require('./src/utils/swagger-output.json');
 
 const app = express();
@@ -32,6 +35,15 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '/public')));
+
+// set security HTTP headers
+app.use(helmet());
+
+
+// sanitize request data
+app.use(xss());
+app.use(mongoSanitize());
+
 
 // Initialize Passport
 passportConfig.initializePassport(app);
