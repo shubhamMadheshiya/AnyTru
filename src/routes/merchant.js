@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
+// const bcrypt = require('bcryptjs');
+// const crypto = require('crypto');
 const multer = require('multer');
 // Bring in Models & Helpers
 const auth = require('../middleware/auth');
@@ -10,34 +10,32 @@ const { MERCHANT_STATUS, ROLES, ENDPOINT } = require('../constants');
 const Merchant = require('../models/merchant');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
-const Brand = require('../models/brand');
-const { s3Upload ,s3Delete } = require('../utils/storage');
+// const Brand = require('../models/brand');
+const { s3Upload, s3Delete } = require('../utils/storage');
 const mailgun = require('../services/mailgun');
 const storage = multer.memoryStorage();
 const NotificationService = require('../services/notificationService');
 
-
 // File filter function
 const fileFilter = (req, file, cb) => {
-  // Accept only specific file types (e.g., images and PDFs)
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
-  }
+	// Accept only specific file types (e.g., images and PDFs)
+	if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'application/pdf') {
+		cb(null, true);
+	} else {
+		cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
+	}
 };
 
 // Multer configuration
 const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // Limit file size to 5MB
-  },
-  fileFilter: fileFilter
+	storage: storage,
+	limits: {
+		fileSize: 5 * 1024 * 1024 // Limit file size to 5MB
+	},
+	fileFilter: fileFilter
 });
 
 // const upload = multer({ storage });
-
 
 // add merchant api
 router.post(
@@ -133,7 +131,7 @@ router.post(
 				panFileKey,
 				gstinFileKey,
 				business,
-				user: userId,
+				// user: userId,
 				websiteUrl,
 				adharNumber,
 				user: findUser,
@@ -200,21 +198,17 @@ router.get('/search', auth, role.check(ROLES.Admin), async (req, res) => {
 	}
 });
 
-
 // get merchant req by id
-router.get('/:reqId', auth, role.check(ROLES.Admin), async (req, res) => {
+router.get('/getById/:reqId', auth, role.check(ROLES.Admin), async (req, res) => {
 	try {
-	
-
 		const reqId = req.params.reqId;
 
 		const merchant = await Merchant.findById(reqId)
-			.populate('user', '-password -provider -followers -orders  -created -address -following').exec();
-
+			.populate('user', '-password -provider -followers -orders  -created -address -following')
+			.exec();
 
 		res.status(200).json({
 			merchant
-			
 		});
 	} catch (error) {
 		console.log(error);
@@ -284,8 +278,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		const merchantId = req.params.id;
 		const query = { _id: merchantId };
 		const update = {
-			status: MERCHANT_STATUS.Approved,
-		
+			status: MERCHANT_STATUS.Approved
 		};
 
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
@@ -295,8 +288,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		// 	});
 		// }
 		if (!me) {
-			return res.status(404).json({error:'Request not found'})
-			
+			return res.status(404).json({ error: 'Request not found' });
 		}
 
 		if (me?.user?.role === ROLES.Merchant) {
@@ -309,7 +301,7 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		}).populate({ path: 'user', select: 'email firstName _id role' });
 
 		// await mailgun.sendEmail(merchantDoc.user.email, 'merchant-approve', null, merchantDoc.user.firstName);
-		
+
 		const userDoc = await createMerchantUser(merchantDoc);
 
 		const notificationData = {
@@ -317,12 +309,10 @@ router.put('/approve/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 			title: merchantDoc.brandId,
 			avatar: userDoc.avatar,
 			message: `Congratulation your profile approve as Vendor`,
-			url: `${ENDPOINT.UserProfile}${userDoc._id}`,
+			url: `${ENDPOINT.UserProfile}${userDoc._id}`
 			// imgUrl: productDoc.imageUrl
 		};
 		const notification = await NotificationService.createNotification(notificationData);
-		
-		
 
 		res.status(200).json({
 			success: true
@@ -346,8 +336,7 @@ router.put('/reject/:id', auth, role.check(ROLES.Admin), async (req, res) => {
 		};
 		const me = await Merchant.findById(merchantId).populate({ path: 'user', select: 'email firstName _id role' });
 		if (!me) {
-			return res.status(404).json({error:'Request not found'})
-			
+			return res.status(404).json({ error: 'Request not found' });
 		}
 		if (me.status === MERCHANT_STATUS.Rejected) {
 			return res.status(400).json({
@@ -472,8 +461,6 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 		const panKey = merchant.panFileKey; // Assuming you store the S3 key of the PAN file in the merchant document
 		const gstinKey = merchant.gstinFileKey; // Assuming you store the S3 key of the GSTIN file in the merchant document
 
-
-		
 		await s3Delete([panKey, gstinKey]);
 
 		// Delete merchant from the database
@@ -536,8 +523,8 @@ router.delete('/delete/:id', auth, role.check(ROLES.Admin), async (req, res) => 
 // };
 
 const createMerchantUser = async (merchantDoc) => {
-	console.log(merchantDoc)
-	
+	console.log(merchantDoc);
+
 	try {
 		const newVendor = new Vendor({
 			vendorId: merchantDoc.brandId,
@@ -545,7 +532,7 @@ const createMerchantUser = async (merchantDoc) => {
 			description: merchantDoc.business,
 			merchantDoc: merchantDoc,
 			websiteUrl: merchantDoc.websiteUrl,
-			merchantAddress: merchantDoc.merchantAddress,
+			merchantAddress: merchantDoc.merchantAddress
 		});
 
 		const vendorDoc = await newVendor.save();
