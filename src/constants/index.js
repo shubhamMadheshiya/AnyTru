@@ -8,10 +8,10 @@ exports.ROLES = {
 exports.CATEGORIES = {
 	Furniture: 'Furniture',
 	Clothing: 'Clothing',
-	PrintsGraphics: 'Prints & Graphics',
+	PrintsGraphics: 'Prints_&_Graphics',
 	HomeDecor: 'Home_Decor',
 	Jewellery: 'Jewellery',
-	EventSetups: 'Event Setups',
+	EventSetups: 'Event_Setups',
 	Accessories: 'Accessories',
 	Others: 'Others'
 };
