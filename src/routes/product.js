@@ -186,7 +186,7 @@ router.get('/list/search', async (req, res) => {
 // fetch products api of particular user by admin
 
 router.get('/list', async (req, res) => {
-	const { page = 1, limit = 10, likes, category, isActive = true, sortDispatchDay } = req.query;
+	const { page = 1, limit = 10, likes, category, isActive = true, sortDispatchDay, following } = req.query;
 	let isAdmin;
 	const userDoc = await checkAuth(req);
 
@@ -214,12 +214,22 @@ router.get('/list', async (req, res) => {
 		}
 
 		// Exclude rejected products and vendor products for merchants
-
 		if (userDoc?.role == ROLES.Merchant) {
 			const vendorAds = await Vendor.findOne({ user: userDoc?.id });
 			filter._id = { $nin: [...vendorAds.products, ...vendorAds.rejProducts] }; // Assuming rejProducts is an array of rejected product IDs
 		}
 
+		// Filter products where the product's user is in the authenticated user's following list
+		if (following && following.toLowerCase() === 'true') {
+			const followingUsers = await User.findOne({ _id: userId }).select('following');
+			if (followingUsers && followingUsers.following.length > 0) {
+				filter['user'] = { $in: followingUsers.following };
+			} else {
+				// Handle case where user is not following anyone
+				filter['user'] = userId; // Filter products by the authenticated user only
+			}
+		} 
+		
 		// Find products with the given filters
 		let productsQuery = Product.find(filter, {
 			_id: 1,
@@ -314,6 +324,7 @@ router.get('/list', async (req, res) => {
 		});
 	}
 });
+
 
 //offerlist
 router.get('/offers/list/:productId', async (req, res) => {
