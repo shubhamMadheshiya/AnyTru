@@ -65,6 +65,7 @@ app.use('/order', require('./src/routes/order'));
 app.use('/notifications', require('./src/routes/notifications'));
 app.use('/chat', require('./src/routes/chat'));
 app.use('/message', require('./src/routes/message'));
+app.use('/reports', require('./src/routes/reports'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Socket.IO Middleware
