@@ -30,16 +30,16 @@ const vendorSchema = new Schema({
 		zipCode: { type: String, required: true, trim: true },
 		country: { type: String, required: true, trim: true }
 	},
-	ads: [
+	products: [
 		{
 			type: Schema.Types.ObjectId,
-			ref: 'Ads'
+			ref: 'Product'
 		}
 	],
-	rejAds: [
+	rejProducts: [
 		{
 			type: Schema.Types.ObjectId,
-			ref: 'Ads'
+			ref: 'Product'
 		}
 	],
 	rating: {

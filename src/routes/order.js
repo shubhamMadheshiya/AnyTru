@@ -19,26 +19,29 @@ const Ads = require('../models/Ads');
 
 // Checkout single order route
 router.post('/checkoutSingle', auth, async (req, res) => {
-	const { adId, offerId } = req.body;
+	const { productId, offerId, addressId, quantity=1 } = req.body;
 	const userId = req.user._id;
 	console.log("checkout")
 
-	if (!adId || !offerId) {
-		return res.status(404).json({ error: ' please provide adId and offerId' });
+	if (!productId || !offerId) {
+		return res.status(404).json({ error: ' please provide productId and offerId' });
 	}
+	if (!addressId) {
+		return res.status(404).json({ error: 'Please provide address' });
+	}
+	
 	try {
-		const findOffer = await Ads.findOne({ _id: adId, user: userId, 'offers._id': offerId, isActive: true })
-			.populate('address')
-			.populate('product')
+		const findOffer = await Product.findOne({ _id: productId, user: userId, 'offers._id': offerId, isActive: true })
+			// .populate('address')
 			.populate('user', '_id firstName lastName email userId phoneNumber');
 
 		// console.log(findOffer);
 		if (!findOffer) {
-			return res.status(404).json({ error: 'Ad not found' });
+			return res.status(404).json({ error: 'Not found' });
 		}
 
-		acceptedOffer = findOffer.offers.find((offer) => (offer._id = offerId));
-		totalPrice = acceptedOffer.pricePerProduct * findOffer.quantity;
+		const acceptedOffer = findOffer.offers.find((offer) => (offer._id = offerId));
+		const totalPrice = acceptedOffer.pricePerProduct * quantity;
 
 		const options = {
 			amount: totalPrice * 100,

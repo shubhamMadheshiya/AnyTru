@@ -366,52 +366,52 @@ router.get(
 );
 
 // Add a route to handle user ID submission
-router.post('/user-id', auth, async (req, res) => {
-	try {
-		const { isSubscribed, userId } = req.body;
+// router.post('/user-id', auth, async (req, res) => {
+// 	try {
+// 		const { isSubscribed, userId } = req.body;
 
-		if (!userId) {
-			return res.status(400).json({ error: 'You must enter a user ID.' });
-		}
+// 		if (!userId) {
+// 			return res.status(400).json({ error: 'You must enter a user ID.' });
+// 		}
 
-		let user = await User.findOne({ userId });
+// 		let user = await User.findOne({ userId });
 
-		if (user) {
-			return res.status(400).json({ error: 'User already exist.' });
-		}
+// 		if (user) {
+// 			return res.status(400).json({ error: 'User already exist.' });
+// 		}
 
-		user.userId = userId;
+// 		user.userId = userId;
 
-		await user.save();
+// 		await user.save();
 
-		let subscribed = false;
-		if (isSubscribed) {
-			try {
-				const result = await mailchimp.subscribeToNewsletter(email);
-				if (result.status === 'subscribed') {
-					subscribed = true;
-				}
-			} catch (error) {
-				console.log(error);
-			}
-		}
+// 		let subscribed = false;
+// 		if (isSubscribed) {
+// 			try {
+// 				const result = await mailchimp.subscribeToNewsletter(email);
+// 				if (result.status === 'subscribed') {
+// 					subscribed = true;
+// 				}
+// 			} catch (error) {
+// 				console.log(error);
+// 			}
+// 		}
 
-		res.status(200).json({
-			success: true,
-			subscribed,
-			user: {
-				id: registeredUser.id,
-				firstName: registeredUser.firstName,
-				lastName: registeredUser.lastName,
-				email: registeredUser.email,
-				role: registeredUser.role
-			}
-		});
-	} catch (error) {
-		console.log(error);
-		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
-	}
-});
+// 		res.status(200).json({
+// 			success: true,
+// 			subscribed,
+// 			user: {
+// 				id: registeredUser.id,
+// 				firstName: registeredUser.firstName,
+// 				lastName: registeredUser.lastName,
+// 				email: registeredUser.email,
+// 				role: registeredUser.role
+// 			}
+// 		});
+// 	} catch (error) {
+// 		console.log(error);
+// 		res.status(400).json({ error: 'Your request could not be processed. Please try again.' });
+// 	}
+// });
 
 // Subscribe to newsletter route
 router.post('/subscribe', async (req, res) => {

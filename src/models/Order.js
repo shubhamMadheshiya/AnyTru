@@ -36,10 +36,7 @@ const ProductSchema = new mongoose.Schema(
 		imageUrl: {
 			type: String
 		},
-		imageUrl: {
-			type: String
-		},
-
+		
 		imageKey: {
 			type: String,
 			trim: true

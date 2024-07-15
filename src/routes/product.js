@@ -6,8 +6,8 @@ const Mongoose = require('mongoose');
 // Bring in Models & Utils
 // const Product = require('../models/Product');
 const Product = require('../models/Product');
+const Vendor = require('../models/Vendor');
 const User = require('../models/User');
-const Brand = require('..//models/brand');
 const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const checkAuth = require('../utils/auth');
@@ -91,7 +91,6 @@ router.get('/item/:slug', async (req, res) => {
 	}
 });
 
-
 // complete
 // fetch product name search api
 
@@ -114,7 +113,7 @@ router.get('/list/search', async (req, res) => {
 		const projection = {
 			_id: 1,
 			sku: 1,
-			name:1,
+			name: 1,
 			imageUrl: 1,
 			description: 1,
 			user: 1,
@@ -143,7 +142,7 @@ router.get('/list/search', async (req, res) => {
 		// Check if the authenticated user liked each product and get the total likes
 		const productsWithLikes = products.map((product) => {
 			const userLiked = product.likes.includes(userId);
-			const userIsFollowingProductUser = product.user && product.user.followers.includes(userId) || false;
+			const userIsFollowingProductUser = (product.user && product.user.followers.includes(userId)) || false;
 
 			return {
 				_id: product._id,
@@ -187,7 +186,7 @@ router.get('/list/search', async (req, res) => {
 // fetch products api of particular user by admin
 
 router.get('/list', async (req, res) => {
-	const { page = 1, limit = 10, likes, category, isActive = true } = req.query;
+	const { page = 1, limit = 10, likes, category, isActive = true, sortDispatchDay } = req.query;
 	let isAdmin;
 	const userDoc = await checkAuth(req);
 
@@ -214,6 +213,13 @@ router.get('/list', async (req, res) => {
 			filter.isActive = true;
 		}
 
+		// Exclude rejected products and vendor products for merchants
+
+		if (userDoc?.role == ROLES.Merchant) {
+			const vendorAds = await Vendor.findOne({ user: userDoc?.id });
+			filter._id = { $nin: [...vendorAds.products, ...vendorAds.rejProducts] }; // Assuming rejProducts is an array of rejected product IDs
+		}
+
 		// Find products with the given filters
 		let productsQuery = Product.find(filter, {
 			_id: 1,
@@ -224,6 +230,7 @@ router.get('/list', async (req, res) => {
 			name: 1,
 			isActive: 1,
 			category: 1,
+			dispatchDay: 1,
 			slug: 1,
 			createdAt: 1 // Explicitly include createdAt field
 		})
@@ -231,13 +238,21 @@ router.get('/list', async (req, res) => {
 				path: 'user',
 				select: '_id firstName lastName userId role isActive avatar createdAt followers'
 			})
-			.sort('-createdAt')
 			.limit(limit * 1)
 			.skip((page - 1) * limit);
 
 		// Sort by likes if requested
 		if (likes) {
 			productsQuery = productsQuery.sort({ likes: -1 });
+		}
+
+		// Sort by dispatchDay if requested
+		if (sortDispatchDay) {
+			const sortOrder = sortDispatchDay.toLowerCase() === 'asc' ? 1 : -1;
+			productsQuery = productsQuery.sort({ dispatchDay: sortOrder });
+		} else {
+			// Default sorting by createdAt descending
+			productsQuery = productsQuery.sort('-createdAt');
 		}
 
 		const products = await productsQuery.exec();
@@ -256,7 +271,7 @@ router.get('/list', async (req, res) => {
 				const userLiked = await Product.exists({ _id: product._id, likes: userId });
 
 				// Check if the authenticated user is following the product user
-				const userIsFollowingProductUser = product.user && product.user.followers.includes(userId) || false;
+				const userIsFollowingProductUser = (product.user && product.user.followers.includes(userId)) || false;
 
 				return {
 					_id: product._id,
@@ -277,6 +292,7 @@ router.get('/list', async (req, res) => {
 					},
 					isActive: product.isActive,
 					category: product.category,
+					dispatchDay: product.dispatchDay, // Include dispatchDay in the response
 					totalLikes,
 					userLiked: !!userLiked,
 					userIsFollowing: userIsFollowingProductUser, // Simplify this property
@@ -299,10 +315,87 @@ router.get('/list', async (req, res) => {
 	}
 });
 
+//offerlist
+router.get('/offers/list/:productId', async (req, res) => {
+	const { page = 1, limit = 10, pricePerProduct, dispatchDay } = req.query;
+
+	try {
+		// Check authentication and role
+		const userDoc = await checkAuth(req);
+		const isAdmin = userDoc?.role === ROLES.Admin;
+		const productId = req.params.productId;
+
+		// Construct query based on isAdmin status and productId
+		const query = isAdmin ? { _id: productId } : { _id: productId, isActive: true };
+
+		// Find the product based on productId and query conditions
+		const product = await Product.findOne(query);
+
+		if (!product) {
+			return res.status(404).json({ error: 'Product not found' });
+		}
+
+		// Extract offers from the product
+		let offers = product.offers;
+
+		// Fetch vendor details for each offer asynchronously
+		const offersWithVendorDetails = await Promise.all(
+			offers.map(async (offer) => {
+				const vendor = await Vendor.findById(offer.vendor).populate('user', 'avatar'); // Assuming vendor has a 'user' field
+
+				return {
+					vendorId: vendor.vendorId,
+					vendorRating: vendor.rating,
+					vendorAddress: vendor.merchantAddress,
+					vendorIsActive: vendor.isActive,
+					vendorAvatar:vendor.user.avatar,
+					...offer.toObject() // Convert Mongoose document to plain JavaScript object
+				};
+			})
+		);
+
+		// Apply sorting based on pricePerProduct and dispatchDay
+		if (pricePerProduct) {
+			offersWithVendorDetails.sort((a, b) => {
+				if (pricePerProduct === 'asc') {
+					return a.pricePerProduct - b.pricePerProduct;
+				} else if (pricePerProduct === 'desc') {
+					return b.pricePerProduct - a.pricePerProduct;
+				}
+				return 0;
+			});
+		}
+
+		if (dispatchDay) {
+			offersWithVendorDetails.sort((a, b) => {
+				if (dispatchDay === 'asc') {
+					return a.dispatchDay - b.dispatchDay;
+				} else if (dispatchDay === 'desc') {
+					return b.dispatchDay - a.dispatchDay;
+				}
+				return 0;
+			});
+		}
+
+		// Pagination logic
+		const startIndex = (page - 1) * limit;
+		const paginatedOffers = offersWithVendorDetails.slice(startIndex, startIndex + limit);
+
+		res.json({
+			totalOffers: offersWithVendorDetails.length,
+			currentPage: parseInt(page, 10),
+			offers: paginatedOffers
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
 // add product api
 router.post('/add', auth, upload.single('image'), async (req, res) => {
 	try {
-		const { sku, name, description, tags, link, category } = req.body;
+		const { sku, name, description, tags, link, category, dispatchDay } = req.body;
 		const userId = req.user._id;
 		const image = req.file;
 
@@ -320,6 +413,10 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 
 		if (!name) {
 			return res.status(400).json({ error: 'You must enter name.' });
+		}
+
+		if (!dispatchDay) {
+			return res.status(400).json({ error: 'You must enter dispatch days.' });
 		}
 
 		// Validate categories
@@ -350,7 +447,8 @@ router.post('/add', auth, upload.single('image'), async (req, res) => {
 			imageUrl,
 			imageKey,
 			tags: Array.isArray(tags) ? tags : tags.split(',').map((tag) => tag.trim()),
-			link
+			link,
+			dispatchDay
 		};
 
 		// Save product to the database
@@ -700,6 +798,7 @@ router.put('/like/:productId', auth, async (req, res) => {
 		}
 
 		const likeIndex = product.likes.indexOf(userId);
+		let message;
 
 		if (likeIndex === -1) {
 			// User has not liked the product, so like it
@@ -783,6 +882,217 @@ router.get('/likeslist/:productId', auth, async (req, res) => {
 			success: false,
 			error: 'An internal server error occurred. Please try again later.'
 		});
+	}
+});
+
+// accept ads by vendor
+router.post('/vendor/:productId/accept', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+		const { pricePerProduct, dispatchDay, remark, material, description } = req.body;
+		if (!pricePerProduct || !dispatchDay || !remark || !material || !description) {
+			return res.status(401).json({ error: 'All fiels are required' });
+		}
+		const productId = req.params.productId;
+		console.log(req.user);
+		const vendorId = req.user.vendor;
+
+		// Check if the ad exists
+		const product = await Product.findOne({ _id: productId, isActive: true });
+		if (!product) {
+			return res.status(404).json({ error: 'Ad not found' });
+		}
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId).populate('user', 'avatar, firstName');
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		// Check if the vendor is already associated with the ad
+
+		if (vendor.products.includes(productId)) {
+			return res.status(400).json({ error: 'Vendor already accepted product' });
+		}
+
+		const vendorDetails = {
+			pricePerProduct,
+			dispatchDay,
+			remark,
+			vendor: vendor._id,
+			material,
+			description
+		};
+		// Add the vendor to the ad's offers array
+		product.offers.push(vendorDetails);
+		vendor.products.push(productId);
+
+		// Save the updated ad and vendor documents
+		const productDoc = await product.save();
+		await vendor.save();
+		const result = {
+			productDetails: {
+				name: productDoc.name,
+				imageUrl: productDoc.imageUrl,
+				description: productDoc.description,
+				tags: productDoc.tags,
+				category: productDoc.category,
+				dispatchDay: productDoc.dispatchDay
+			},
+
+			newOffer: {
+				vendorRating: vendor.rating,
+				vendorLocation: vendor.merchantAddress,
+				...vendorDetails
+			}
+		};
+
+		//Notification to user
+		const notificationData = {
+			userId: productDoc.user,
+			title: vendor.user.firstName,
+			avatar: vendor.user.avatar || '',
+			message: `accept your product at price ₹${pricePerProduct} per Product`,
+			url: `${ENDPOINT.UserProfile}${vendor.user._id}`,
+			imgUrl: productDoc.imageUrl || ''
+		};
+		const notification = await NotificationService.createNotification(notificationData);
+
+		res.json({ success: true, message: 'Successfully added ad', result });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// cancel product by vendor accepted product ad
+router.put('/vendor/:productId/cancel', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+		const productId = req.params.productId;
+		const vendorId = req.user.vendor;
+
+		// Check if the ad exists
+		const product = await Product.findById(productId);
+		if (!product) {
+			return res.status(404).json({ error: 'Product not found' });
+		}
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		// Check if the vendor has already accepted the ad
+		const offerIndex = product.offers.findIndex((offer) => offer.vendor.toString() === vendorId.toString());
+		if (offerIndex === -1) {
+			return res.status(400).json({ error: 'Vendor yet not accept the ad of Product' });
+		}
+
+		// Remove the offer from the ad's offers array
+		product.offers.splice(offerIndex, 1);
+		vendor.products.pull(productId);
+
+		// Save the updated ad and vendor documents
+		const productDoc = await product.save();
+		await vendor.save();
+
+		res.json({ success: true, message: 'Successfully cancelled ad of product' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// reject ads of product by vendor
+router.post('/vendor/:productId/reject', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+		const productId = req.params.productId;
+		const vendorId = req.user.vendor;
+
+		// Check if the ad exists
+		const product = await Product.findById(productId);
+		if (!product) {
+			return res.status(404).json({ error: 'product not found' });
+		}
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		// Check if the vendor is already associated with the ad
+		if (vendor.products.includes(productId)) {
+			return res.status(400).json({ error: 'Vendor already accept the ad' });
+		}
+
+		// Check if the vendor is already associated with the ad
+		if (vendor.rejProducts.includes(productId)) {
+			return res.status(400).json({ error: 'Vendor already reject the ad' });
+		}
+
+		vendor.rejProducts.push(productId);
+
+		await vendor.save();
+
+		res.json({ success: true, message: 'Successfully rejected product' });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Get all accepted and rejected offers for a vendor
+router.get('/vendor/myoffer/status', auth, role.check(ROLES.Merchant), async (req, res) => {
+	try {
+		const vendorId = req.user.vendor;
+		const { status = 'accepted', page = 1, limit = 10 } = req.query;
+
+		// Check if the vendor exists
+		const vendor = await Vendor.findById(vendorId);
+		if (!vendor) {
+			return res.status(404).json({ error: 'Vendor not found' });
+		}
+
+		let products;
+		if (status === 'accepted') {
+			products = vendor.products;
+		} else if (status === 'rejected') {
+			products = vendor.rejProducts;
+		} else {
+			return res.status(400).json({ error: 'Invalid status' });
+		}
+
+		// Pagination
+		const totalProducts = products.length;
+		const startIndex = (page - 1) * limit;
+		const endIndex = page * limit;
+		const paginatedProducts = products.slice(startIndex, endIndex);
+
+		const projection = {
+			_id: 1,
+			name: 1,
+			imageUrl: 1,
+			description: 1,
+			category: 1,
+			dispatchDay: 1
+		};
+		// Fetch detailed ad information for each ad ID in the paginated list
+		const productsDetails = await Product.find({ _id: { $in: paginatedProducts } }, projection)
+			.populate('user', '_id firstName userId isActive avatar role')
+			// .populate('address', '_id city')
+			.exec();
+		// .populate('product', '_id sku name imageUrl description isActive category')
+
+		res.json({
+			products: productsDetails,
+			totalPages: Math.ceil(totalProducts / limit),
+			currentPage: Number(page),
+			count: totalProducts
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
 	}
 });
 

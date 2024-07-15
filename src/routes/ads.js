@@ -32,7 +32,7 @@ router.post('/add/:productId', auth, async (req, res) => {
 		if (!addressId) {
 			address = await Address.findOne({ user: userId, isDefault: true });
 		} else {
-			findAddress = await Address.findById(addressId);
+			const findAddress = await Address.findById(addressId);
 
 			if (!findAddress) {
 				return res.status(404).json({ error: 'Address not found' });
