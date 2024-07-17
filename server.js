@@ -14,6 +14,7 @@ const Chat = require('./src/models/Chat');
 const NotificationService = require('./src/services/notificationService');
 const Message = require('./src/models/Message');
 const helmet = require('helmet');
+const morgan = require('morgan');
 const xss = require('xss-clean');
 const mongoSanitize = require('express-mongo-sanitize');
 const swaggerDocument = require('./src/utils/swagger-output.json');
@@ -35,6 +36,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '/public')));
+
+app.use(morgan('tiny'));
 
 // set security HTTP headers
 app.use(helmet());
