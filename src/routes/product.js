@@ -229,7 +229,7 @@ router.get('/list', async (req, res) => {
 				filter['user'] = userId; // Filter products by the authenticated user only
 			}
 		} 
-		
+
 		// Find products with the given filters
 		let productsQuery = Product.find(filter, {
 			_id: 1,
@@ -406,7 +406,8 @@ router.get('/offers/list/:productId', async (req, res) => {
 // add product api
 router.post('/add', auth, upload.single('image'), async (req, res) => {
 	try {
-		const { sku, name, description, tags, link, category, dispatchDay } = req.body;
+
+		const { sku, name, description, tags, link, category, dispatchDay,  } = req.body;
 		const userId = req.user._id;
 		const image = req.file;
 

@@ -72,7 +72,7 @@ router.post('/user/:userId', auth, async (req, res) => {
 		});
 
 		await report.save();
-		res.status(201).json({ message: 'User reported successfully' });
+		res.status(201).json({ success: true, message: 'User reported successfully' });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: 'Internal server error' });

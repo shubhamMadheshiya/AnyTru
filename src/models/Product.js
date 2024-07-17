@@ -75,6 +75,7 @@ const ProductSchema = new Schema(
 			}
 		],
 		link: String,
+		
 
 		dispatchDay: {
 			type: Number
@@ -98,15 +99,15 @@ const ProductSchema = new Schema(
 				},
 				remark: {
 					type: String,
-					trim:true
+					trim: true
 				},
-				material:{
+				material: {
 					type: String,
-					trim:true,
+					trim: true
 				},
-				description:{
+				description: {
 					type: String,
-					trim:true,
+					trim: true
 				}
 			}
 		]
