@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS , CATEGORIES } = require('../constants');
+const { ORDER_ITEM_STATUS, ORDER_PAYMENT_STATUS, CATEGORIES } = require('../constants');
 
 const AddressSchema = new mongoose.Schema(
 	{
@@ -36,7 +36,7 @@ const ProductSchema = new mongoose.Schema(
 		imageUrl: {
 			type: String
 		},
-		
+
 		imageKey: {
 			type: String,
 			trim: true
@@ -68,8 +68,7 @@ const OrderSchema = new mongoose.Schema(
 			unique: true
 		},
 		user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-		
-		
+
 		// address: { type: Object, required: true },
 		paymentStatus: {
 			type: String,
@@ -106,7 +105,7 @@ const OrderSchema = new mongoose.Schema(
 		pricePerProduct: {
 			type: Number,
 			default: 0,
-			required: true,
+			required: true
 		},
 		totalAmount: {
 			type: Number,
@@ -128,12 +127,46 @@ const OrderSchema = new mongoose.Schema(
 		receipt: {
 			type: String
 		},
-		ad:{
-			type: mongoose.Schema.Types.ObjectId,
-			ref:'Ads'
+		amount_due: {
+			type: Number
+		},
+		amount_paid: {
+			type: Number
+		},
+		attempts: {
+			type: Number
+		},
+		currency: {
+			type: String,
+			default: 'INR'
+		},
+		offer_id: {
+			type: String
+		},
+		created_at: {
+			type: Number
 		}
+		// ad:{
+		// 	type: mongoose.Schema.Types.ObjectId,
+		// 	ref:'Ads'
+		// },
 	},
 	{ timestamps: true }
 );
 
 module.exports = mongoose.model('Order', OrderSchema);
+
+// 	{
+//   amount: 4000,
+//   amount_due: 4000,
+//   amount_paid: 0,
+//   attempts: 0,
+//   created_at: 1721902224,
+//   currency: 'INR',
+//   entity: 'order',
+//   id: 'order_OcpLVBgRZW04N4',
+//   notes: [],
+//   offer_id: null,
+//   receipt: 'receipt_1721902224409',
+//   status: 'created'
+// }
