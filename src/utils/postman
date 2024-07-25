@@ -1,0 +1,49 @@
+// Parse the request body to extract identifier
+// let requestBody = pm.request.body.raw;
+// let requestData = JSON.parse(requestBody);
+// let identifier = requestData.identifier;
+
+// Function to set collection variable
+function setCollectionVariable(name, value) {
+	pm.collectionVariables.set(name, value);
+	console.log(`Collection variable set: ${name} = ${value}`);
+}
+
+// Function to handle login response and set token and user ID
+function handleLoginResponse(err, res) {
+	if (err) {
+		console.error('Login request failed:', err);
+		return;
+	}
+
+	// Parse the response to get the token and user details
+	let jsonData = res.json();
+	let token = jsonData.token;
+	let user = jsonData.user;
+	let userId = user.id;
+	let firstName = user.firstName;
+
+	// Create the variable names dynamically
+	let tokenVariableName = firstName + '-token';
+	let userIdVariableName = firstName + 'Id';
+
+	// Set the token and user ID in collection variables
+	setCollectionVariable(tokenVariableName, token);
+	setCollectionVariable(userIdVariableName, userId);
+}
+
+// Send login request and handle response
+pm.sendRequest(
+	{
+		url: pm.environment.get('baseUrl') + '/auth/login',
+		method: 'POST',
+		header: {
+			'Content-Type': 'application/json'
+		},
+		body: {
+			mode: 'raw',
+			raw: requestBody
+		}
+	},
+	handleLoginResponse
+);
