@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const Adress = require('../models/Adress');
 const mailgun = require('../services/mailgun');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
@@ -19,9 +20,9 @@ const Ads = require('../models/Ads');
 
 // Checkout single order route
 router.post('/checkoutSingle', auth, async (req, res) => {
-	const { productId, offerId, addressId, quantity=1 } = req.body;
+	const { productId, offerId, addressId, quantity = 1 } = req.body;
 	const userId = req.user._id;
-	console.log("checkout")
+	console.log('checkout');
 
 	if (!productId || !offerId) {
 		return res.status(404).json({ error: ' please provide productId and offerId' });
@@ -29,8 +30,12 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 	if (!addressId) {
 		return res.status(404).json({ error: 'Please provide address' });
 	}
-	
+
 	try {
+		const address = await Adress.findOne({ _id: addressId, user: userId });
+		if (!address) {
+			return res.status(404).json({ error: 'Address not found' });
+		}
 		const findOffer = await Product.findOne({ _id: productId, user: userId, 'offers._id': offerId, isActive: true })
 			// .populate('address')
 			.populate('user', '_id firstName lastName email userId phoneNumber');
@@ -54,26 +59,31 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 			return res.status(400).json({ error: 'Order not found' });
 		}
 		// console.log(order);
+		// console.log(findOffer);
 
 		const orderData = {
 			orderId: order.id,
 			user: findOffer.user,
 			PaymentStatus: ORDER_PAYMENT_STATUS.Created,
-			product: findOffer.product,
-			quantity: findOffer.quantity,
+			product: findOffer,
+			quantity: quantity,
 			vendor: acceptedOffer.vendor,
 			pricePerProduct: acceptedOffer.pricePerProduct,
 			totalAmount: order.amount / 100,
 			remark: acceptedOffer.remark,
 			dispatchDay: acceptedOffer.dispatchDay,
-			address: findOffer.address,
+			address: address,
 			receipt: order.receipt,
-			ad: findOffer._id
+			amount_due: order.amount_due,
+			amount_paid: order.amount_paid,
+			attempts: order.attempts,
+			currency: order.currency,
+			offer_id: order.offer_id,
+			created_at: order.created_at
 		};
 
 		const newOrder = new Order(orderData);
 		const orderDoc = await newOrder.save();
-		
 
 		// // send vendor Notification
 		// //add ads acceptedOffer
@@ -92,7 +102,6 @@ router.post('/checkoutSingle', auth, async (req, res) => {
 		});
 	}
 });
-
 
 // add get by user
 //vendor
