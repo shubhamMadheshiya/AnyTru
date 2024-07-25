@@ -6,9 +6,7 @@ const crypto = require('crypto');
 const passport = require('passport');
 const User = require('../models/User');
 const { authorizeRole } = require('../middleware/authorizeRole');
-const { ROLES , ADMIN_EMAILS} = require('../constants/index');
-
-
+const { ROLES, ADMIN_EMAILS } = require('../constants/index');
 
 const auth = require('../middleware/auth');
 
@@ -144,7 +142,6 @@ router.post('/register', async (req, res) => {
 			role,
 			password: hash // Assign the hashed password
 		});
-		
 
 		const registeredUser = await user.save();
 
@@ -267,7 +264,7 @@ router.post('/reset', auth, async (req, res) => {
 		const email = req.user.email;
 
 		if (!email) {
-			return res.status(401).send({error:'Unauthenticated'});
+			return res.status(401).send({ error: 'Unauthenticated' });
 		}
 
 		if (!password) {
@@ -310,7 +307,7 @@ router.get(
 		session: false,
 		scope: ['profile', 'email'],
 		accessType: 'offline',
-		approvalPrompt: 'force',
+		approvalPrompt: 'force'
 		// prompt: 'select_account'
 	})
 );
@@ -323,10 +320,10 @@ router.get(
 	}),
 	(req, res) => {
 		// const userId = req.user.userId;
-			const payload = {
-				id: req.user.id
-			};
-			
+		const payload = {
+			id: req.user.id
+		};
+
 		// TODO find another way to send the token to frontend
 		const token = jwt.sign(payload, secret, { expiresIn: tokenLife });
 		const jwtToken = `Bearer ${token}`;
@@ -335,7 +332,6 @@ router.get(
 		// 	return res.redirect(`${keys.app.clientURL}/auth/userId?token=${jwtToken}`);
 		// }
 
-	
 		// res.redirect(`${keys.app.clientURL}/dashboard`)
 		res.redirect(`${keys.app.clientURL}/auth/success?token=${jwtToken}`);
 	}
